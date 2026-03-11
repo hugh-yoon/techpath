@@ -93,18 +93,18 @@ const COURSES_MAP: Record<string, Course> = {
 
 // Mock semester schedule data
 const SEMESTER_SCHEDULE: ScheduleEntry[] = [
-	// Fall 2024
-	{ courseId: '1', course: COURSES_MAP['1'], day: 'Monday', time: '09:00-10:30', semester: 'Fall 2024' },
-	{ courseId: '1', course: COURSES_MAP['1'], day: 'Wednesday', time: '09:00-10:30', semester: 'Fall 2024' },
-	{ courseId: '4', course: COURSES_MAP['4'], day: 'Tuesday', time: '14:00-15:30', semester: 'Fall 2024' },
-	{ courseId: '4', course: COURSES_MAP['4'], day: 'Thursday', time: '14:00-15:30', semester: 'Fall 2024' },
+	// Fall 2026
+	{ courseId: '1', course: COURSES_MAP['1'], day: 'Monday', time: '09:00-10:30', semester: 'Fall 2026' },
+	{ courseId: '1', course: COURSES_MAP['1'], day: 'Wednesday', time: '09:00-10:30', semester: 'Fall 2026' },
+	{ courseId: '4', course: COURSES_MAP['4'], day: 'Tuesday', time: '14:00-15:30', semester: 'Fall 2026' },
+	{ courseId: '4', course: COURSES_MAP['4'], day: 'Thursday', time: '14:00-15:30', semester: 'Fall 2026' },
 
-	// Spring 2025
-	{ courseId: '6', course: COURSES_MAP['6'], day: 'Monday', time: '10:00-11:30', semester: 'Spring 2025' },
-	{ courseId: '6', course: COURSES_MAP['6'], day: 'Wednesday', time: '10:00-11:30', semester: 'Spring 2025' },
-	{ courseId: '7', course: COURSES_MAP['7'], day: 'Tuesday', time: '13:00-14:30', semester: 'Spring 2025' },
-	{ courseId: '7', course: COURSES_MAP['7'], day: 'Thursday', time: '13:00-14:30', semester: 'Spring 2025' },
-	{ courseId: '8', course: COURSES_MAP['8'], day: 'Friday', time: '09:00-10:30', semester: 'Spring 2025' },
+	// Spring 2026
+	{ courseId: '6', course: COURSES_MAP['6'], day: 'Monday', time: '10:00-11:30', semester: 'Spring 2026' },
+	{ courseId: '6', course: COURSES_MAP['6'], day: 'Wednesday', time: '10:00-11:30', semester: 'Spring 2026' },
+	{ courseId: '7', course: COURSES_MAP['7'], day: 'Tuesday', time: '13:00-14:30', semester: 'Spring 2026' },
+	{ courseId: '7', course: COURSES_MAP['7'], day: 'Thursday', time: '13:00-14:30', semester: 'Spring 2026' },
+	{ courseId: '8', course: COURSES_MAP['8'], day: 'Friday', time: '09:00-10:30', semester: 'Spring 2026' },
 ]
 
 // Recommendation mapping - which courses recommend which next courses
