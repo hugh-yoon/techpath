@@ -23,6 +23,7 @@
 	/* Tertiary (accents, subordinately) */
 	--gt-bold-blue: #3a5dae;
 	--gt-impact-purple: #5f249f;
+	--gt-alert-red: #d13438;
 
 	/* Semantic – white background, navy/gray text, navy links, tech gold accent */
 	--background: var(--gt-white);
@@ -35,6 +36,7 @@
 	--accent-accessible: var(--gt-tech-dark-gold);
 	--border: var(--gt-pi-mile);
 	--surface: var(--gt-diploma);
+	--alert: var(--gt-alert-red);
 }
 
 /* Light mode only – Georgia Tech brand: White, Tech Gold, Navy (brand.gatech.edu/our-look/colors) */
@@ -52,6 +54,7 @@
 	--color-gt-buzz-gold: var(--gt-buzz-gold);
 	--color-gt-bold-blue: var(--gt-bold-blue);
 	--color-gt-impact-purple: var(--gt-impact-purple);
+	--color-gt-alert-red: var(--gt-alert-red);
 	--color-background: var(--background);
 	--color-foreground: var(--foreground);
 	--color-foreground-muted: var(--foreground-muted);
@@ -61,4 +64,5 @@
 	--color-accent: var(--accent);
 	--color-border: var(--border);
 	--color-surface: var(--surface);
+	--color-alert: var(--alert);
 }

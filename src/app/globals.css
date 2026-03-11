@@ -6,6 +6,29 @@
 	--font-mono: var(--font-geist-mono);
 }
 
+/* Blueprint grid background pattern */
+@supports (background-image: repeating-conic-gradient(#f0f0f0 1deg 90deg)) {
+	html {
+		background-image: 
+			repeating-linear-gradient(
+				0deg,
+				transparent,
+				transparent 39px,
+				rgba(179, 163, 105, 0.03) 39px,
+				rgba(179, 163, 105, 0.03) 40px
+			),
+			repeating-linear-gradient(
+				90deg,
+				transparent,
+				transparent 39px,
+				rgba(179, 163, 105, 0.03) 39px,
+				rgba(179, 163, 105, 0.03) 40px
+			);
+		background-size: 40px 40px;
+		background-position: 0 0, 0 0;
+	}
+}
+
 /* Site-wide: white background, Georgia Tech light-mode palette */
 html {
 	background: var(--background);
