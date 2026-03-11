@@ -16,6 +16,7 @@ interface ScheduleEntry {
 interface SemesterScheduleProps {
 	scheduleEntries: ScheduleEntry[]
 	recommendationMap?: Record<string, Course[]>
+	skillRequirementsMap?: Record<string, string[]>
 	onCourseSelect?: (course: Course) => void
 	onSwitchToCalendar?: (course: Course) => void
 }
@@ -25,6 +26,7 @@ const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
 export function SemesterSchedule({
 	scheduleEntries,
 	recommendationMap = {},
+	skillRequirementsMap = {},
 	onCourseSelect,
 	onSwitchToCalendar,
 }: SemesterScheduleProps) {
@@ -134,16 +136,30 @@ export function SemesterSchedule({
 																	<p className="text-xs font-semibold text-gt-navy mb-3">
 																		Next Steps
 																	</p>
-																	<div className="space-y-2 mb-4">
+																	<div className="space-y-3 mb-4 max-h-48 overflow-y-auto">
 																		{getRecommendations(entry.courseId).length > 0 ? (
 																			getRecommendations(entry.courseId).map((rec) => (
-																				<div key={rec.id} className="text-xs">
+																				<div key={rec.id} className="text-xs border-b border-gt-navy/10 pb-2 last:border-b-0">
 																					<p className="font-medium text-gt-navy">
 																						{rec.department} {rec.course_number}
 																					</p>
-																					<p className="text-gt-gray-matter text-xs truncate">
+																					<p className="text-gt-gray-matter text-xs truncate mb-2">
 																						{rec.course_name}
 																					</p>
+																					{/* Skills Required */}
+																					{skillRequirementsMap[rec.id] && skillRequirementsMap[rec.id].length > 0 && (
+																						<div className="bg-gt-navy/5 rounded px-2 py-1 mb-1">
+																							<p className="text-xs font-semibold text-gt-navy mb-1">Skills Required:</p>
+																							<div className="space-y-1">
+																								{skillRequirementsMap[rec.id].map((skill) => (
+																									<div key={skill} className="flex items-start gap-1">
+																										<span className="text-gt-tech-gold mt-0.5">•</span>
+																										<span className="text-gt-gray-matter">{skill}</span>
+																									</div>
+																								))}
+																							</div>
+																						</div>
+																					)}
 																				</div>
 																			))
 																		) : (

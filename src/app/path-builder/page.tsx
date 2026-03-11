@@ -89,6 +89,15 @@ const RECOMMENDATION_MAP: Record<string, Course[]> = {
 	'5': [], // CS 3510 is advanced
 }
 
+// Skill requirements mapping - which skills are needed for each course
+const SKILL_REQUIREMENTS_MAP: Record<string, string[]> = {
+	'1': ['Problem Solving', 'Mathematical Foundation'], // CS 1331 prerequisites
+	'2': ['Object-Oriented Programming', 'Java Proficiency', 'Algorithm Analysis'], // CS 1332 prerequisites
+	'3': ['Object-Oriented Programming', 'Data Structures', 'Design Patterns'], // CS 2340 prerequisites
+	'4': ['Calculus Fundamentals', 'Mathematical Reasoning'], // MATH 1552 prerequisites
+	'5': ['Data Structures', 'Algorithm Analysis', 'System Design', 'Java Proficiency'], // CS 3510 prerequisites
+}
+
 export default function PathBuilderPage() {
 	const [viewMode, setViewMode] = useState<'schedule' | 'calendar'>('schedule')
 	const [selectedCourse, setSelectedCourse] = useState<Course | null>(null)
@@ -163,6 +172,7 @@ export default function PathBuilderPage() {
 							<SemesterSchedule
 								scheduleEntries={SEMESTER_SCHEDULE}
 								recommendationMap={RECOMMENDATION_MAP}
+								skillRequirementsMap={SKILL_REQUIREMENTS_MAP}
 								onCourseSelect={handleCourseSelect}
 								onSwitchToCalendar={handleSwitchToCalendar}
 							/>
