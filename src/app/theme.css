@@ -1,0 +1,64 @@
+/**
+ * Georgia Tech brand theme – official palette from brand.gatech.edu/our-look/colors
+ * Primary: Tech Gold, Navy Blue, White. Secondary: Gray Matter, Pi Mile, Diploma, Buzz Gold.
+ * Background is white; Navy/Gray Matter for text; Tech Gold for accents.
+ */
+
+:root {
+	/* Primary (use prominently) */
+	--gt-white: #ffffff;
+	--gt-navy: #003057;
+	--gt-tech-gold: #b3a369;
+
+	/* Accessible Tech Gold (for text on white – brand guide requires weight 600+) */
+	--gt-tech-medium-gold: #a4925a;
+	--gt-tech-dark-gold: #857437;
+
+	/* Secondary */
+	--gt-gray-matter: #54585a;
+	--gt-pi-mile: #d6dbd4;
+	--gt-diploma: #f9f6e5;
+	--gt-buzz-gold: #eaaa00;
+
+	/* Tertiary (accents, subordinately) */
+	--gt-bold-blue: #3a5dae;
+	--gt-impact-purple: #5f249f;
+
+	/* Semantic – white background, navy/gray text, navy links, tech gold accent */
+	--background: var(--gt-white);
+	--foreground: var(--gt-navy);
+	--foreground-muted: var(--gt-gray-matter);
+	--link: var(--gt-navy);
+	--link-hover: var(--gt-bold-blue);
+	--link-visited: var(--gt-impact-purple);
+	--accent: var(--gt-tech-gold);
+	--accent-accessible: var(--gt-tech-dark-gold);
+	--border: var(--gt-pi-mile);
+	--surface: var(--gt-diploma);
+}
+
+/* Light mode only – Georgia Tech brand: White, Tech Gold, Navy (brand.gatech.edu/our-look/colors) */
+
+/* Tailwind v4 – use via utilities: bg-gt-navy, text-gt-tech-gold, etc. */
+@theme inline {
+	--color-gt-white: var(--gt-white);
+	--color-gt-navy: var(--gt-navy);
+	--color-gt-tech-gold: var(--gt-tech-gold);
+	--color-gt-tech-medium-gold: var(--gt-tech-medium-gold);
+	--color-gt-tech-dark-gold: var(--gt-tech-dark-gold);
+	--color-gt-gray-matter: var(--gt-gray-matter);
+	--color-gt-pi-mile: var(--gt-pi-mile);
+	--color-gt-diploma: var(--gt-diploma);
+	--color-gt-buzz-gold: var(--gt-buzz-gold);
+	--color-gt-bold-blue: var(--gt-bold-blue);
+	--color-gt-impact-purple: var(--gt-impact-purple);
+	--color-background: var(--background);
+	--color-foreground: var(--foreground);
+	--color-foreground-muted: var(--foreground-muted);
+	--color-link: var(--link);
+	--color-link-hover: var(--link-hover);
+	--color-link-visited: var(--link-visited);
+	--color-accent: var(--accent);
+	--color-border: var(--border);
+	--color-surface: var(--surface);
+}

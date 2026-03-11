@@ -1,0 +1,563 @@
+---
+alwaysApply: true
+---
+
+1. Product Overview
+
+Product Name
+
+TechPath
+
+Product Summary
+
+TechPath is an all-in-one Georgia Tech course information and planning platform that allows students to search for courses, evaluate instructors, read reviews, build semester schedules, and plan their full academic career.
+
+The platform combines the functionality of:
+
+• Course search
+• Instructor insights
+• Student reviews
+• Schedule builder
+• Academic career planner
+• Administrative course database management
+
+The system enforces strict relational database integrity and structured object assignment. Any relational entity such as instructors, courses, or prerequisites must be selected from existing records rather than manually typed.
+
+⸻
+
+2. Product Goals
+
+Primary Goals
+
+Provide Georgia Tech students with a single platform where they can:
+
+• Discover courses
+• Evaluate instructors
+• Build semester schedules
+• Plan their entire academic career
+
+⸻
+
+Secondary Goals
+
+• Demonstrate a complete CRUD backend using Supabase
+• Maintain strict relational database constraints
+• Support drag-and-drop schedule planning
+• Provide prerequisite conflict validation
+
+⸻
+
+3. Technology Stack
+
+Frontend
+React
+Next.js
+
+Styling
+TailwindCSS
+ShadCN / Radix UI
+
+Backend
+Supabase (PostgreSQL)
+
+Libraries
+dnd-kit for drag-and-drop
+
+Deployment
+Vercel
+
+⸻
+
+4. Core Academic Entities
+
+The system enforces strict separation between academic objects.
+
+⸻
+
+Course
+
+A course represents an academic topic offered by a department.
+
+Fields:
+
+Department
+Course Number
+Course Name
+Description
+Credit Hours
+Difficulty Rating
+
+Example
+
+Department: CS
+Course Number: 2110
+Course Name: Design of Algorithms
+
+Constraints
+
+• Course number must be numeric
+• Course name must be text
+• Course number and course name must be separate fields
+• Course numbers must be unique within a department
+
+⸻
+
+Section
+
+A section represents a specific offering of a course.
+
+Fields
+
+Course
+Section Code
+Instructor
+Meeting Days
+Start Time
+End Time
+Location
+CRN
+
+Example
+
+CS 2110
+Section A
+Instructor: Dr Smith
+Days: Monday Wednesday
+Time: 1:00PM – 2:30PM
+
+Constraints
+
+• Course must be selected from existing course records
+• Instructor must be selected from existing instructor records
+• Section code must be text
+• CRN must be unique
+
+⸻
+
+Instructor
+
+Represents a professor or lecturer.
+
+Fields
+
+Name
+Department
+Rating
+Teaching Style
+
+Constraints
+
+• Instructor names must be unique
+• Instructors must exist before they can be assigned to sections
+
+⸻
+
+5. Admin System
+
+TechPath includes a strict administrative interface responsible for maintaining all academic data.
+
+Students cannot modify academic records.
+
+Admins maintain all course structures and relationships.
+
+⸻
+
+Admin Capabilities
+
+Admins can perform CRUD operations on the following objects:
+
+Courses
+Sections
+Instructors
+Prerequisites
+Reviews (delete only)
+
+Admins can view but not modify student schedules.
+
+⸻
+
+Admin Object Assignment Rules
+
+All relational objects must be selected from existing records using dropdown selectors.
+
+Examples of valid assignment:
+
+Instructor: selected from instructor list
+
+Course: selected from course list
+
+Examples of invalid assignment:
+
+Typing instructor name manually
+Typing prerequisite course manually
+
+⸻
+
+Admin Interface Sections
+
+Admin Dashboard
+
+Courses
+Sections
+Instructors
+Prerequisites
+Reviews
+
+⸻
+
+Course Creation (Admin)
+
+Required Fields
+
+Department
+Course Number
+Course Name
+Description
+Credit Hours
+Difficulty Rating
+
+Constraints
+
+Department must be selected from predefined department list
+
+Course Number must be numeric
+
+Course Name must be text
+
+Duplicate department + course number combinations are not allowed
+
+⸻
+
+Section Creation (Admin)
+
+Required Fields
+
+Course
+Section Code
+Instructor
+Meeting Days
+Start Time
+End Time
+Location
+CRN
+
+Constraints
+
+Instructor must be selected from instructor list
+
+Course must be selected from course list
+
+CRN must be unique
+
+⸻
+
+Time Constraints
+
+Class times follow strict rules.
+
+Time increments are limited to 15 minute intervals.
+
+Valid schedule time range
+
+7:00 AM through 9:00 PM
+
+Examples of valid times
+
+7:00
+7:15
+7:30
+7:45
+8:00
+
+Examples of invalid times
+
+6:30
+9:30 PM
+
+Classes cannot begin before 7:00 AM and cannot end after 9:00 PM.
+
+⸻
+
+Day Constraints
+
+Sections may only meet on the following days
+
+Monday
+Tuesday
+Wednesday
+Thursday
+Friday
+
+Days must be stored as constrained enumerations.
+
+⸻
+
+Prerequisite Assignment
+
+Admins assign prerequisites for courses.
+
+Each prerequisite must reference an existing course.
+
+Multiple prerequisites are allowed.
+
+Example
+
+Course: CS 2110
+Prerequisite: CS 1332
+
+⸻
+
+6. Student Features
+
+Students cannot modify course or instructor data.
+
+Students can:
+
+Search courses
+View course details
+View instructor details
+Submit reviews
+Build semester schedules
+Build long-term academic plans
+
+⸻
+
+7. Course Search
+
+Users can search by:
+
+Department
+Course number
+Course name
+Instructor
+
+⸻
+
+Search Results
+
+Search results display a course with all available sections.
+
+Each result card displays:
+
+Course department and number
+Course name
+Available sections
+
+Example
+
+CS 2110
+Design of Algorithms
+
+Sections
+
+A — Dr Smith — Monday Wednesday 1:00 PM
+B — Dr Lee — Tuesday Thursday 11:00 AM
+
+⸻
+
+8. Course Detail Page
+
+Displays course information including
+
+Department
+Course number
+Course name
+Description
+Difficulty rating
+Credit hours
+
+⸻
+
+Section Information
+
+Each section displays
+
+Section code
+Instructor
+Days of week
+Start time
+End time
+Location
+CRN
+
+⸻
+
+Course Insights
+
+Examples include
+
+Programming languages used
+Project heavy vs exam heavy
+Typical workload expectations
+
+⸻
+
+Reviews
+
+Students can submit
+
+Rating
+Difficulty rating
+Written comment
+
+⸻
+
+Add To Schedule
+
+A button allows adding the section to a schedule.
+
+The system prompts the user to choose an existing schedule or create a new schedule.
+
+⸻
+
+9. Semester Schedule Builder
+
+Users can create multiple schedules.
+
+Examples
+
+Fall 2025
+Spring 2026
+Fall 2026
+
+⸻
+
+Schedule Page Layout
+
+Two main sections exist
+
+Sidebar
+Calendar View
+
+⸻
+
+Sidebar
+
+The sidebar lists classes currently in the schedule.
+
+Each class card displays
+
+Course code
+Course name
+Section
+Instructor
+Meeting time
+
+Clicking a class card navigates to the course detail page.
+
+⸻
+
+Calendar View
+
+The calendar displays weekly course blocks.
+
+Columns represent weekdays
+
+Monday
+Tuesday
+Wednesday
+Thursday
+Friday
+
+Rows represent time of day.
+
+The calendar begins at 7:00 AM and ends at 9:00 PM.
+
+Each row represents a 15 minute interval.
+
+Courses appear as blocks spanning their scheduled time.
+
+Clicking a calendar block opens the course page in a new tab.
+
+⸻
+
+Schedule Editing
+
+Users may remove classes from schedules.
+
+Removal requires confirmation.
+
+⸻
+
+Credit Hour Display
+
+The sidebar displays the total credit hours for the schedule.
+
+⸻
+
+10. Career Planner
+
+The Career Planner allows students to organize semester schedules into a long-term academic plan.
+
+Example
+
+Computer Science Degree Plan
+
+⸻
+
+Career Structure
+
+A career contains ordered semester schedules.
+
+Example
+
+Fall 2025
+Spring 2026
+Fall 2026
+Spring 2027
+
+⸻
+
+Drag and Drop
+
+Users can drag schedules to reorder them.
+
+Users can also drag courses between schedules.
+
+⸻
+
+Prerequisite Validation
+
+When a course appears before its prerequisite, the system detects a violation.
+
+Violating courses are highlighted in red.
+
+A warning notification is displayed.
+
+⸻
+
+Conflict Resolution
+
+If a user moves a course to an invalid semester, a prompt appears.
+
+The prompt offers to move the course to an eligible semester where prerequisites are satisfied.
+
+If no eligible semester exists, the system displays
+
+No eligible schedules available.
+
+⸻
+
+11. Database Integrity Requirements
+
+The database must enforce
+
+Foreign key constraints
+Unique constraints
+Non-null constraints
+Enumerated fields for days of week
+Time constraints for valid class times
+
+⸻
+
+12. MVP Scope
+
+The MVP must include
+
+Course search
+Course detail pages
+Instructor pages
+Schedule builder
+Career planner
+Admin management panel
+Supabase CRUD backend

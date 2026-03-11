@@ -1,0 +1,289 @@
+---
+alwaysApply: true
+---
+
+TechPath System Architecture
+
+⸻
+
+1. System Overview
+
+TechPath uses a client-driven architecture where the frontend interacts directly with Supabase.
+
+Architecture layers
+
+Frontend: Next.js React application
+Backend: Supabase API
+Database: PostgreSQL database managed by Supabase
+
+⸻
+
+2. Project Folder Structure
+
+src
+
+components
+admin
+course
+instructor
+schedule
+career
+
+pages
+dashboard
+course
+instructor
+schedule
+career
+admin
+
+hooks
+
+lib
+supabaseClient
+
+types
+
+utils
+
+⸻
+
+3. Database Schema
+
+⸻
+
+Courses Table
+
+Fields
+
+id
+department
+course_number
+course_name
+description
+credit_hours
+difficulty_rating
+
+Constraints
+
+Department + course_number must be unique.
+
+⸻
+
+Instructors Table
+
+Fields
+
+id
+name
+department
+rating
+teaching_style
+
+Constraints
+
+Instructor name must be unique.
+
+⸻
+
+Sections Table
+
+Fields
+
+id
+course_id
+instructor_id
+section_code
+day_pattern
+start_time
+end_time
+location
+crn
+
+Constraints
+
+course_id must reference courses table
+instructor_id must reference instructors table
+
+start_time must be greater than or equal to 7:00 AM
+end_time must be less than or equal to 9:00 PM
+
+⸻
+
+Course Prerequisites Table
+
+Fields
+
+id
+course_id
+prerequisite_course_id
+
+Both fields must reference valid courses.
+
+⸻
+
+Schedules Table
+
+Fields
+
+id
+name
+semester
+year
+
+⸻
+
+Schedule Sections Table
+
+Fields
+
+id
+schedule_id
+section_id
+
+Links a schedule to the sections within it.
+
+⸻
+
+Careers Table
+
+Fields
+
+id
+name
+
+⸻
+
+Career Schedules Table
+
+Fields
+
+id
+career_id
+schedule_id
+semester_order
+
+Defines the sequence of schedules within a career.
+
+⸻
+
+Course Reviews Table
+
+Fields
+
+id
+course_id
+rating
+difficulty
+comment
+
+⸻
+
+Instructor Reviews Table
+
+Fields
+
+id
+instructor_id
+rating
+comment
+
+⸻
+
+4. State Management
+
+Recommended state library: Zustand.
+
+Application state should track
+
+Current selected course
+Search results
+Active schedule
+Active career plan
+
+⸻
+
+5. Calendar Rendering System
+
+Calendar grid configuration
+
+Start time: 7:00 AM
+End time: 9:00 PM
+
+Time increments: 15 minutes
+
+Total rows: 56
+
+Columns represent weekdays
+
+Monday
+Tuesday
+Wednesday
+Thursday
+Friday
+
+Course blocks span the duration of the scheduled meeting time.
+
+⸻
+
+6. Drag and Drop System
+
+The drag-and-drop system uses the dnd-kit library.
+
+Drag operations include
+
+Reordering semester schedules
+Moving classes between schedules
+
+⸻
+
+7. Prerequisite Validation Engine
+
+The system checks prerequisites whenever schedules change.
+
+Algorithm logic
+
+For each course in a semester schedule
+Retrieve its prerequisites
+Check if prerequisites appear in earlier semesters
+If not, mark the course as violating prerequisite order
+
+⸻
+
+8. Admin System Architecture
+
+Admin routes include
+
+/admin
+/admin/courses
+/admin/instructors
+/admin/sections
+/admin/prerequisites
+
+Admin pages display tables with create, edit, and delete functionality.
+
+Forms enforce strict dropdown selection for relational fields.
+
+⸻
+
+9. Supabase Data Access Layer
+
+Supabase client is implemented in
+
+lib/supabaseClient
+
+All database queries should be centralized through reusable hooks.
+
+⸻
+
+10. Performance Considerations
+
+Use indexed fields for
+
+department
+course_number
+instructor_id
+
+Implement pagination for search results.
+
+Lazy load course and instructor reviews.
