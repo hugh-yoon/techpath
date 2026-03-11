@@ -62,6 +62,33 @@ const COURSES_MAP: Record<string, Course> = {
 		credit_hours: 3,
 		difficulty_rating: 4.2,
 	},
+	'6': {
+		id: '6',
+		department: 'CS',
+		course_number: 3600,
+		course_name: 'Artificial Intelligence',
+		description: 'AI fundamentals, algorithms, and applications',
+		credit_hours: 3,
+		difficulty_rating: 4.3,
+	},
+	'7': {
+		id: '7',
+		department: 'CS',
+		course_number: 3603,
+		course_name: 'Computer Networks',
+		description: 'Network protocols, architecture, and communication',
+		credit_hours: 3,
+		difficulty_rating: 4.1,
+	},
+	'8': {
+		id: '8',
+		department: 'CS',
+		course_number: 4641,
+		course_name: 'Machine Learning',
+		description: 'ML algorithms, supervised and unsupervised learning',
+		credit_hours: 3,
+		difficulty_rating: 4.4,
+	},
 }
 
 // Mock semester schedule data
@@ -73,20 +100,23 @@ const SEMESTER_SCHEDULE: ScheduleEntry[] = [
 	{ courseId: '4', course: COURSES_MAP['4'], day: 'Thursday', time: '14:00-15:30', semester: 'Fall 2024' },
 
 	// Spring 2025
-	{ courseId: '2', course: COURSES_MAP['2'], day: 'Monday', time: '10:00-11:30', semester: 'Spring 2025' },
-	{ courseId: '2', course: COURSES_MAP['2'], day: 'Wednesday', time: '10:00-11:30', semester: 'Spring 2025' },
-	{ courseId: '3', course: COURSES_MAP['3'], day: 'Tuesday', time: '13:00-14:30', semester: 'Spring 2025' },
-	{ courseId: '3', course: COURSES_MAP['3'], day: 'Thursday', time: '13:00-14:30', semester: 'Spring 2025' },
-	{ courseId: '1', course: COURSES_MAP['1'], day: 'Friday', time: '09:00-10:30', semester: 'Spring 2025' },
+	{ courseId: '6', course: COURSES_MAP['6'], day: 'Monday', time: '10:00-11:30', semester: 'Spring 2025' },
+	{ courseId: '6', course: COURSES_MAP['6'], day: 'Wednesday', time: '10:00-11:30', semester: 'Spring 2025' },
+	{ courseId: '7', course: COURSES_MAP['7'], day: 'Tuesday', time: '13:00-14:30', semester: 'Spring 2025' },
+	{ courseId: '7', course: COURSES_MAP['7'], day: 'Thursday', time: '13:00-14:30', semester: 'Spring 2025' },
+	{ courseId: '8', course: COURSES_MAP['8'], day: 'Friday', time: '09:00-10:30', semester: 'Spring 2025' },
 ]
 
 // Recommendation mapping - which courses recommend which next courses
 const RECOMMENDATION_MAP: Record<string, Course[]> = {
 	'1': [COURSES_MAP['2'], COURSES_MAP['3']], // CS 1331 recommends CS 1332 and CS 2340
 	'2': [COURSES_MAP['3'], COURSES_MAP['5']], // CS 1332 recommends CS 2340 and CS 3510
-	'3': [COURSES_MAP['5']], // CS 2340 recommends CS 3510
+	'3': [COURSES_MAP['5'], COURSES_MAP['6']], // CS 2340 recommends CS 3510 and CS 3600
 	'4': [], // MATH 1552 has no direct CS recommendations
-	'5': [], // CS 3510 is advanced
+	'5': [COURSES_MAP['6'], COURSES_MAP['7']], // CS 3510 recommends CS 3600 and CS 3603
+	'6': [COURSES_MAP['8']], // CS 3600 recommends CS 4641
+	'7': [COURSES_MAP['8']], // CS 3603 recommends CS 4641
+	'8': [], // CS 4641 is advanced capstone
 }
 
 // Skill requirements mapping - which skills are needed for each course
@@ -96,6 +126,9 @@ const SKILL_REQUIREMENTS_MAP: Record<string, string[]> = {
 	'3': ['Object-Oriented Programming', 'Data Structures', 'Design Patterns'], // CS 2340 prerequisites
 	'4': ['Calculus Fundamentals', 'Mathematical Reasoning'], // MATH 1552 prerequisites
 	'5': ['Data Structures', 'Algorithm Analysis', 'System Design', 'Java Proficiency'], // CS 3510 prerequisites
+	'6': ['Algorithm Analysis', 'Data Structures', 'Python Proficiency', 'Logic & Reasoning'], // CS 3600 prerequisites
+	'7': ['Data Structures', 'Algorithm Analysis', 'System Architecture', 'Java Proficiency'], // CS 3603 prerequisites
+	'8': ['Machine Learning Theory', 'Linear Algebra', 'Statistics', 'Python Proficiency'], // CS 4641 prerequisites
 }
 
 export default function PathBuilderPage() {
