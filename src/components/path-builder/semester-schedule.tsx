@@ -33,7 +33,7 @@ export function SemesterSchedule({
 	const [hoveredCourseId, setHoveredCourseId] = useState<string | null>(null)
 	const [selectedCourse, setSelectedCourse] = useState<Course | null>(null)
 
-	// Group courses by semester
+	// Group courses by semester and maintain order
 	const groupedBySemester = scheduleEntries.reduce(
 		(acc, entry) => {
 			if (!acc[entry.semester]) {
@@ -45,7 +45,8 @@ export function SemesterSchedule({
 		{} as Record<string, ScheduleEntry[]>
 	)
 
-	const semesters = Object.keys(groupedBySemester).sort()
+	// Maintain the order semesters appear in the array instead of sorting
+	const semesters = Array.from(new Map(scheduleEntries.map((e) => [e.semester, true])).keys())
 
 	// get recommendations for hovered course
 	const getRecommendations = (courseId: string): Course[] => {
