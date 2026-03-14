@@ -1,127 +1,50 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { DiscoveryDeck } from '@/components/discovery'
+import { SubjectFilter } from '@/components/discovery/subject-filter'
+import { PageHeader } from '@/components/ui/page-header'
+import { Skeleton } from '@/components/ui/skeleton'
+import { useCourses } from '@/hooks'
 import { Course } from '@/types'
 
-// Mock data for demonstration
-const MOCK_COURSES: (Course & { cost?: string; gradeDistribution?: Record<string, number> })[] = [
-	{
-		id: '1',
-		department: 'CS',
-		course_number: 1331,
-		course_name: 'Introduction to Object-Oriented Programming',
-		description:
-			'Comprehensive introduction to object-oriented programming, design, and analysis. Students will learn Java fundamentals, OOP principles, and software engineering best practices.',
-		credit_hours: 3,
-		difficulty_rating: 3.5,
-		cost: '$150',
-		gradeDistribution: {
-			'Final Exam': 30,
-			'Homeworks': 35,
-			'Participation': 15,
-			'Projects': 20,
-		},
-	},
-	{
-		id: '2',
-		department: 'CS',
-		course_number: 1332,
-		course_name: 'Data Structures & Algorithms',
-		description:
-			'Core data structures including lists, stacks, queues, trees, and graphs. Analysis of algorithms and complexity. Implementation and applications.',
-		credit_hours: 3,
-		difficulty_rating: 4.0,
-		cost: '$200',
-		gradeDistribution: {
-			'Final Exam': 35,
-			'Programming Assignments': 40,
-			'Midterm': 15,
-			'Quizzes': 10,
-		},
-	},
-	{
-		id: '3',
-		department: 'CS',
-		course_number: 2050,
-		course_name: 'Introduction to Computer Science',
-		description:
-			'Overview of fundamental concepts in computer science, including computational thinking, algorithms, and problem-solving strategies.',
-		credit_hours: 3,
-		difficulty_rating: 2.8,
-		gradeDistribution: {
-			'Final Project': 40,
-			'Assignments': 30,
-			'Participation': 20,
-			'Attendance': 10,
-		},
-	},
-	{
-		id: '4',
-		department: 'CS',
-		course_number: 2340,
-		course_name: 'Objects and Design',
-		description:
-			'Object-oriented design principles, design patterns, UML, software testing, refactoring. Building robust and maintainable software.',
-		credit_hours: 3,
-		difficulty_rating: 3.8,
-		cost: '$175',
-		gradeDistribution: {
-			'Design Project': 40,
-			'Exams': 35,
-			'Programming Assignments': 15,
-			'Code Review': 10,
-		},
-	},
-	{
-		id: '5',
-		department: 'CS',
-		course_number: 3510,
-		course_name: 'Design of Operating Systems',
-		description:
-			'Operating system design, process management, memory management, file systems, I/O systems, concurrency, and security.',
-		credit_hours: 3,
-		difficulty_rating: 4.2,
-		cost: '$150',
-		gradeDistribution: {
-			'Final Exam': 30,
-			'Programming Projects': 45,
-			'Quizzes': 15,
-			'Participation': 10,
-		},
-	},
-]
-
 export default function DiscoveryPage() {
-	const [courses, setCourses] = useState<typeof MOCK_COURSES>([])
+	const { data: coursesFromDb, isLoading: coursesLoading } = useCourses()
 	const [addedCourses, setAddedCourses] = useState<string[]>([])
+	const [selectedSubjects, setSelectedSubjects] = useState<string[]>([])
 
-	useEffect(() => {
-		// Simulate data loading
-		setCourses(MOCK_COURSES)
-	}, [])
+	// Discovery deck accepts optional cost/gradeDistribution; DB courses don't have them
+	const allCourses = (coursesFromDb ?? []) as (Course & {
+		cost?: string
+		gradeDistribution?: Record<string, number>
+	})[]
+
+	const departments = useMemo(() => {
+		const set = new Set<string>()
+		allCourses.forEach((c) => set.add(c.department))
+		return Array.from(set).sort()
+	}, [allCourses])
+
+	const courses = useMemo(() => {
+		if (selectedSubjects.length === 0) return allCourses
+		return allCourses.filter((c) => selectedSubjects.includes(c.department))
+	}, [allCourses, selectedSubjects])
 
 	const handleAddCourse = (course: Course) => {
 		setAddedCourses((prev) => [...prev, course.id])
-		// You can add additional logic here like showing a toast notification
 	}
 
 	const handleViewDetails = (course: Course) => {
-		// Navigate to course details page
 		window.location.href = `/course/${course.id}`
 	}
 
 	return (
 		<div className="min-h-screen bg-gt-white">
-			{/* Header */}
-			<div className="border-b border-gt-navy/10 bg-gradient-to-r from-gt-navy to-gt-navy/90 px-6 py-8">
-				<div className="max-w-7xl mx-auto">
-					<h1 className="text-4xl font-bold text-gt-tech-gold mb-2">Discovery Deck</h1>
-					<p className="text-gt-white/80">
-						Discover new courses and find classes that match your interests
-					</p>
-				</div>
-			</div>
+			<PageHeader
+				title="Discovery Deck"
+				subtitle="Discover new courses and find classes that match your interests"
+				homeHref="/"
+			/>
 
 			{/* Main content */}
 			<div className="max-w-7xl mx-auto px-6 py-12">
@@ -129,7 +52,15 @@ export default function DiscoveryPage() {
 					{/* Deck */}
 					<div className="col-span-2">
 						<div className="rounded-2xl bg-gt-diploma border-2 border-gt-navy/10 p-8">
-							{courses.length > 0 ? (
+							{coursesLoading ? (
+								<div className="flex h-96 flex-col items-center justify-center gap-4 p-6" aria-hidden>
+									<Skeleton className="h-64 w-full max-w-sm rounded-2xl" />
+									<div className="flex gap-2">
+										<Skeleton className="h-10 w-24 rounded-lg" />
+										<Skeleton className="h-10 w-24 rounded-lg" />
+									</div>
+								</div>
+							) : courses.length > 0 ? (
 								<DiscoveryDeck
 									courses={courses}
 									onAddCourse={handleAddCourse}
@@ -137,7 +68,7 @@ export default function DiscoveryPage() {
 								/>
 							) : (
 								<div className="flex h-96 items-center justify-center">
-									<p className="text-gt-gray-matter">Loading courses...</p>
+									<p className="text-gt-gray-matter">No courses in the catalog yet.</p>
 								</div>
 							)}
 						</div>
@@ -185,6 +116,18 @@ export default function DiscoveryPage() {
 								<div className="text-xs text-gt-navy/60 mt-1">Added</div>
 							</div>
 						</div>
+
+						{/* Subject filter */}
+						{departments.length > 0 && (
+							<div className="rounded-xl border-2 border-gt-navy/10 bg-gt-diploma p-4">
+								<h3 className="font-bold text-gt-navy mb-2">Subjects</h3>
+								<SubjectFilter
+									departments={departments}
+									selected={selectedSubjects}
+									onChange={setSelectedSubjects}
+								/>
+							</div>
+						)}
 					</div>
 				</div>
 			</div>

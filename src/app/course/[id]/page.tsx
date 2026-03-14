@@ -3,13 +3,16 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
+import { motion } from 'framer-motion'
 import { BackLink } from '@/components/ui/back-link'
+import { PageHeader } from '@/components/ui/page-header'
 import { useCourse, useCourseReviews } from '@/hooks'
 import { useSectionsByCourse } from '@/hooks/use-sections'
 import { AddToScheduleDialog } from '@/components/course/add-to-schedule-dialog'
 import { CourseReviewDialog } from '@/components/course/course-review-dialog'
 import { SectionReviewsBlock } from '@/components/course/section-reviews-block'
 import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import { formatDaysShort } from '@/utils/days'
 import { formatTimeDisplay } from '@/utils/time'
 
@@ -25,8 +28,33 @@ export default function CourseDetailPage() {
 
 	if (courseLoading || !id) {
 		return (
-			<div className="p-6">
-				<p className="text-gt-gray-matter dark:text-foreground-muted">Loading…</p>
+			<div className="min-h-screen bg-gt-white dark:bg-background">
+				<PageHeader title="" subtitle="" homeHref="/" />
+				<div className="max-w-7xl mx-auto px-6 py-8">
+					<div className="rounded-xl border-2 border-gt-navy/10 bg-gt-diploma p-6 dark:border-gt-gray-matter dark:bg-surface">
+						<div className="flex flex-wrap gap-4">
+							<Skeleton className="h-4 w-24" />
+							<Skeleton className="h-4 w-20" />
+						</div>
+						<Skeleton className="mt-4 h-4 w-full" />
+						<Skeleton className="mt-2 h-4 w-3/4" />
+					</div>
+					<section className="mt-8">
+						<Skeleton className="h-6 w-24" />
+						<div className="mt-4 space-y-4">
+							{Array.from({ length: 3 }).map((_, i) => (
+								<div
+									key={i}
+									className="rounded-xl border-2 border-gt-navy/10 bg-gt-white p-4 dark:border-gt-gray-matter dark:bg-surface"
+								>
+									<Skeleton className="h-4 w-28" />
+									<Skeleton className="mt-2 h-3 w-48" />
+									<Skeleton className="mt-1 h-3 w-32" />
+								</div>
+							))}
+						</div>
+					</section>
+				</div>
 			</div>
 		)
 	}
@@ -41,42 +69,57 @@ export default function CourseDetailPage() {
 	}
 
 	return (
-		<div className="min-h-screen bg-gt-white p-6 dark:bg-background">
-			<div className="mb-4">
-				<BackLink href="/dashboard">Search</BackLink>
-			</div>
-			<div className="mt-4">
-				<h1 className="text-2xl font-semibold">
-					{course.department} {course.course_number}
-				</h1>
-				<p className="mt-1 text-lg text-gt-gray-matter dark:text-foreground-muted">
-					{course.course_name}
-				</p>
-				<div className="mt-4 flex flex-wrap gap-4 text-sm">
-					<span>Credit hours: {course.credit_hours}</span>
-					{course.difficulty_rating != null && (
-						<span>Difficulty: {course.difficulty_rating}/5</span>
+		<div className="min-h-screen bg-gt-white dark:bg-background">
+			<PageHeader
+				title={`${course.department} ${course.course_number}`}
+				subtitle={course.course_name}
+				homeHref="/"
+			>
+				<BackLink href="/dashboard" className="text-gt-tech-gold/90 hover:text-gt-tech-gold">
+					Search
+				</BackLink>
+			</PageHeader>
+			<div className="max-w-7xl mx-auto px-6 py-8">
+				<div className="rounded-xl border-2 border-gt-navy/10 bg-gt-diploma p-6 dark:border-gt-gray-matter dark:bg-surface">
+					<div className="flex flex-wrap gap-4 text-sm">
+						<span className="text-gt-navy dark:text-foreground">Credit hours: {course.credit_hours}</span>
+						{course.difficulty_rating != null && (
+							<span className="text-gt-navy dark:text-foreground">Difficulty: {course.difficulty_rating}/5</span>
+						)}
+					</div>
+					{course.description && (
+						<p className="mt-4 text-gt-gray-matter dark:text-foreground-muted">
+							{course.description}
+						</p>
 					)}
 				</div>
-				{course.description && (
-					<p className="mt-4 text-gt-gray-matter dark:text-foreground-muted">
-						{course.description}
-					</p>
-				)}
-			</div>
 
 			<section className="mt-8" aria-labelledby="sections-heading">
-				<h2 id="sections-heading" className="text-lg font-semibold">
+				<h2 id="sections-heading" className="text-xl font-bold text-gt-navy dark:text-foreground">
 					Sections
 				</h2>
 				{sectionsLoading ? (
-					<p className="mt-2 text-gt-gray-matter dark:text-foreground-muted">Loading sections…</p>
+					<div className="mt-4 space-y-4" aria-hidden>
+						{Array.from({ length: 3 }).map((_, i) => (
+							<div
+								key={i}
+								className="rounded-xl border-2 border-gt-navy/10 bg-gt-white p-4 dark:border-gt-gray-matter dark:bg-surface"
+							>
+								<Skeleton className="h-4 w-28" />
+								<Skeleton className="mt-2 h-3 w-48" />
+								<Skeleton className="mt-1 h-3 w-32" />
+							</div>
+						))}
+					</div>
 				) : (
-					<ul className="mt-2 space-y-4">
-						{sections.map((s) => (
-							<li
+					<ul className="mt-4 space-y-4">
+						{sections.map((s, i) => (
+							<motion.li
 								key={s.id}
-								className="rounded-lg border border-gt-pi-mile bg-gt-white p-3 dark:border-gt-gray-matter dark:bg-surface"
+								initial={{ opacity: 0, y: 8 }}
+								animate={{ opacity: 1, y: 0 }}
+								transition={{ duration: 0.2, delay: i * 0.04 }}
+								className="rounded-xl border-2 border-gt-navy/10 bg-gt-white p-4 dark:border-gt-gray-matter dark:bg-surface"
 							>
 								<div className="flex flex-wrap items-center justify-between gap-2">
 									<div>
@@ -110,13 +153,13 @@ export default function CourseDetailPage() {
 									</Button>
 								</div>
 								<SectionReviewsBlock sectionId={s.id} sectionCode={s.section_code} />
-							</li>
+							</motion.li>
 						))}
 					</ul>
 				)}
 			</section>
 
-			<section className="mt-8" aria-labelledby="reviews-heading">
+			<section className="mt-8 rounded-xl border-2 border-gt-navy/10 bg-gt-diploma p-6 dark:border-gt-gray-matter dark:bg-surface" aria-labelledby="reviews-heading">
 				<div className="flex flex-wrap items-center justify-between gap-2">
 					<h2 id="reviews-heading" className="text-lg font-semibold">
 						Reviews
@@ -178,6 +221,7 @@ export default function CourseDetailPage() {
 					onSuccess={refetchCourseReviews}
 				/>
 			</section>
+			</div>
 
 			<AddToScheduleDialog
 				open={!!addToScheduleSectionId}

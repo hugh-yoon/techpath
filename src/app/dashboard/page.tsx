@@ -2,7 +2,8 @@
 
 import { useState, useMemo, useCallback } from 'react'
 import Link from 'next/link'
-import { BackLink } from '@/components/ui/back-link'
+import { motion } from 'framer-motion'
+import { PageHeader } from '@/components/ui/page-header'
 import { useCourseSearch } from '@/hooks/use-courses'
 import { useInstructors } from '@/hooks/use-instructors'
 import { useSearchStore } from '@/stores/search-store'
@@ -17,8 +18,27 @@ import {
 	SelectValue,
 } from '@/components/ui/select'
 import { DEPARTMENTS } from '@/utils/constants'
+import { Skeleton } from '@/components/ui/skeleton'
 import { formatDaysShort } from '@/utils/days'
 import { formatTimeDisplay } from '@/utils/time'
+
+function DashboardResultsSkeleton() {
+	return (
+		<ul className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-hidden>
+			{Array.from({ length: 6 }).map((_, i) => (
+				<li key={i} className="rounded-xl border-2 border-gt-navy/10 bg-gt-white p-4 dark:border-gt-gray-matter dark:bg-surface">
+					<Skeleton className="h-5 w-32" />
+					<Skeleton className="mt-2 h-4 w-full max-w-[200px]" />
+					<div className="mt-3 space-y-1.5">
+						<Skeleton className="h-3 w-full" />
+						<Skeleton className="h-3 w-4/5" />
+						<Skeleton className="h-3 w-3/5" />
+					</div>
+				</li>
+			))}
+		</ul>
+	)
+}
 
 const PAGE_SIZE = 20
 
@@ -43,12 +63,14 @@ export default function DashboardPage() {
 	const handleNext = useCallback(() => setPage((p) => p + 1), [])
 
 	return (
-		<div className="min-h-screen bg-gt-white p-6 dark:bg-[var(--background)]">
-			<div className="mb-4">
-				<BackLink href="/">Home</BackLink>
-			</div>
-			<h1 className="text-xl font-semibold text-gt-navy dark:text-foreground">Course Search</h1>
-			<div className="mt-4 flex flex-wrap items-end gap-4 rounded-lg border border-gt-pi-mile bg-gt-diploma p-4 dark:border-gt-gray-matter dark:bg-surface">
+		<div className="min-h-screen bg-gt-white dark:bg-[var(--background)]">
+			<PageHeader
+				title="Course Search"
+				subtitle="Find courses and sections by department, number, name, or instructor"
+				homeHref="/"
+			/>
+			<div className="max-w-7xl mx-auto px-6 py-8">
+			<div className="flex flex-wrap items-end gap-4 rounded-xl border-2 border-gt-navy/10 bg-gt-diploma p-4 dark:border-gt-gray-matter dark:bg-surface">
 				<div className="grid gap-1.5">
 					<Label htmlFor="dept">Department</Label>
 					<Select
@@ -116,14 +138,19 @@ export default function DashboardPage() {
 				</p>
 			)}
 			{isLoading ? (
-				<p className="mt-6 text-gt-gray-matter dark:text-foreground-muted">Loading…</p>
+				<DashboardResultsSkeleton />
 			) : (
 				<ul className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-label="Search results">
-					{results.map((course) => (
-						<li key={course.id}>
+					{results.map((course, i) => (
+						<motion.li
+							key={course.id}
+							initial={{ opacity: 0, y: 12 }}
+							animate={{ opacity: 1, y: 0 }}
+							transition={{ duration: 0.25, delay: i * 0.03 }}
+						>
 							<Link
 								href={`/course/${course.id}`}
-								className="block rounded-lg border border-gt-pi-mile bg-gt-white p-4 transition-colors hover:bg-gt-diploma dark:border-gt-gray-matter dark:bg-surface dark:hover:bg-gt-gray-matter/50"
+								className="block rounded-xl border-2 border-gt-navy/10 bg-gt-white p-4 transition-colors hover:border-gt-tech-gold/40 hover:bg-gt-diploma hover:shadow-md dark:border-gt-gray-matter dark:bg-surface dark:hover:bg-gt-gray-matter/50"
 							>
 								<h2 className="font-semibold text-gt-navy dark:text-foreground">
 									{course.department} {course.course_number}
@@ -146,7 +173,7 @@ export default function DashboardPage() {
 									</ul>
 								)}
 							</Link>
-						</li>
+						</motion.li>
 					))}
 				</ul>
 			)}
@@ -162,7 +189,7 @@ export default function DashboardPage() {
 						type="button"
 						onClick={handlePrev}
 						disabled={page === 0}
-						className="rounded border border-gt-pi-mile px-3 py-1.5 text-sm text-gt-navy disabled:opacity-50 dark:border-gt-gray-matter dark:text-foreground"
+						className="rounded-lg border-2 border-gt-navy/20 px-4 py-2 text-sm font-medium text-gt-navy transition-colors hover:bg-gt-navy/10 disabled:opacity-50 dark:border-gt-gray-matter dark:text-foreground"
 						aria-label="Previous page"
 					>
 						Previous
@@ -174,13 +201,14 @@ export default function DashboardPage() {
 						type="button"
 						onClick={handleNext}
 						disabled={results.length < PAGE_SIZE}
-						className="rounded border border-gt-pi-mile px-3 py-1.5 text-sm text-gt-navy disabled:opacity-50 dark:border-gt-gray-matter dark:text-foreground"
+						className="rounded-lg border-2 border-gt-navy/20 px-4 py-2 text-sm font-medium text-gt-navy transition-colors hover:bg-gt-navy/10 disabled:opacity-50 dark:border-gt-gray-matter dark:text-foreground"
 						aria-label="Next page"
 					>
 						Next
 					</button>
 				</nav>
 			)}
+			</div>
 		</div>
 	)
 }

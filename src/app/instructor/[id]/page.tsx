@@ -3,13 +3,16 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
+import { motion } from 'framer-motion'
 import { BackLink } from '@/components/ui/back-link'
+import { PageHeader } from '@/components/ui/page-header'
 import { useInstructor, useInstructorReviews, useCreateInstructorReview } from '@/hooks'
 import { useSectionsByInstructor } from '@/hooks/use-sections'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Skeleton } from '@/components/ui/skeleton'
 import { formatDaysShort } from '@/utils/days'
 import { formatTimeDisplay } from '@/utils/time'
 
@@ -33,8 +36,28 @@ export default function InstructorDetailPage() {
 
 	if (instructorLoading || !id) {
 		return (
-			<div className="p-6">
-				<p className="text-gt-gray-matter dark:text-foreground-muted">Loading…</p>
+			<div className="min-h-screen bg-gt-white dark:bg-background">
+				<PageHeader title="" subtitle="" homeHref="/" />
+				<div className="max-w-7xl mx-auto px-6 py-8">
+					<div className="rounded-xl border-2 border-gt-navy/10 bg-gt-diploma p-4 dark:border-gt-gray-matter dark:bg-surface">
+						<Skeleton className="h-4 w-full max-w-md" />
+						<Skeleton className="mt-2 h-4 w-2/3" />
+					</div>
+					<section className="mt-8">
+						<Skeleton className="h-6 w-24" />
+						<div className="mt-4 space-y-3">
+							{Array.from({ length: 4 }).map((_, i) => (
+								<div
+									key={i}
+									className="rounded-xl border-2 border-gt-navy/10 bg-gt-white p-3 dark:border-gt-gray-matter dark:bg-surface"
+								>
+									<Skeleton className="h-4 w-36" />
+									<Skeleton className="mt-1.5 h-3 w-48" />
+								</div>
+							))}
+						</div>
+					</section>
+				</div>
 			</div>
 		)
 	}
@@ -49,37 +72,50 @@ export default function InstructorDetailPage() {
 	}
 
 	return (
-		<div className="min-h-screen bg-gt-white p-6 dark:bg-background">
-			<div className="mb-4">
-				<BackLink href="/dashboard">Search</BackLink>
-			</div>
-			<div className="mt-4">
-				<h1 className="text-2xl font-semibold">{instructor.name}</h1>
-				<p className="mt-1 text-gt-gray-matter dark:text-foreground-muted">
-					Department: {instructor.department}
-				</p>
-				{instructor.rating != null && (
-					<p className="mt-1 text-sm">Rating: {instructor.rating}/5</p>
-				)}
+		<div className="min-h-screen bg-gt-white dark:bg-background">
+			<PageHeader
+				title={instructor.name}
+				subtitle={`Department: ${instructor.department}${instructor.rating != null ? ` · Rating: ${instructor.rating}/5` : ''}`}
+				homeHref="/"
+			>
+				<BackLink href="/dashboard" className="text-gt-tech-gold/90 hover:text-gt-tech-gold">
+					Search
+				</BackLink>
+			</PageHeader>
+			<div className="max-w-7xl mx-auto px-6 py-8">
 				{instructor.teaching_style && (
-					<p className="mt-2 text-gt-gray-matter dark:text-foreground-muted">
-						{instructor.teaching_style}
-					</p>
+					<div className="rounded-xl border-2 border-gt-navy/10 bg-gt-diploma p-4 dark:border-gt-gray-matter dark:bg-surface">
+						<p className="text-gt-gray-matter dark:text-foreground-muted">
+							{instructor.teaching_style}
+						</p>
+					</div>
 				)}
-			</div>
 
 			<section className="mt-8" aria-labelledby="sections-heading">
-				<h2 id="sections-heading" className="text-lg font-semibold">
+				<h2 id="sections-heading" className="text-xl font-bold text-gt-navy dark:text-foreground">
 					Sections
 				</h2>
 				{sectionsLoading ? (
-					<p className="mt-2 text-gt-gray-matter dark:text-foreground-muted">Loading sections…</p>
+					<div className="mt-4 space-y-3" aria-hidden>
+						{Array.from({ length: 4 }).map((_, i) => (
+							<div
+								key={i}
+								className="rounded-xl border-2 border-gt-navy/10 bg-gt-white p-3 dark:border-gt-gray-matter dark:bg-surface"
+							>
+								<Skeleton className="h-4 w-36" />
+								<Skeleton className="mt-1.5 h-3 w-48" />
+							</div>
+						))}
+					</div>
 				) : (
-					<ul className="mt-2 space-y-2">
-						{sections.map((s) => (
-							<li
+					<ul className="mt-4 space-y-3">
+						{sections.map((s, i) => (
+							<motion.li
 								key={s.id}
-								className="rounded-lg border border-gt-pi-mile bg-gt-white p-3 dark:border-gt-gray-matter dark:bg-surface"
+								initial={{ opacity: 0, y: 8 }}
+								animate={{ opacity: 1, y: 0 }}
+								transition={{ duration: 0.2, delay: i * 0.04 }}
+								className="rounded-xl border-2 border-gt-navy/10 bg-gt-white p-3 dark:border-gt-gray-matter dark:bg-surface"
 							>
 								<Link
 									href={`/course/${s.course_id}`}
@@ -92,13 +128,13 @@ export default function InstructorDetailPage() {
 									Section {s.section_code} · {formatDaysShort(s.day_pattern)}{' '}
 									{formatTimeDisplay(s.start_time)}–{formatTimeDisplay(s.end_time)}
 								</span>
-							</li>
+							</motion.li>
 						))}
 					</ul>
 				)}
 			</section>
 
-			<section className="mt-8" aria-labelledby="reviews-heading">
+			<section className="mt-8 rounded-xl border-2 border-gt-navy/10 bg-gt-diploma p-6 dark:border-gt-gray-matter dark:bg-surface" aria-labelledby="reviews-heading">
 				<h2 id="reviews-heading" className="text-lg font-semibold">
 					Reviews
 				</h2>
@@ -159,6 +195,7 @@ export default function InstructorDetailPage() {
 					</>
 				)}
 			</section>
+			</div>
 		</div>
 	)
 }

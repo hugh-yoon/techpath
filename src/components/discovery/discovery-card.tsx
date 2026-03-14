@@ -26,8 +26,9 @@ export function DiscoveryCard({ course, onAction }: DiscoveryCardProps) {
 			{/* Content */}
 		<div className="flex-1 overflow-y-auto space-y-4 p-6">
 			{/* Description */}
-			<p className="text-sm text-gt-gray-matter">
-				</p>
+			{course.description && (
+				<p className="text-sm text-gt-gray-matter">{course.description}</p>
+			)}
 
 				{/* Alert Banner for Cost */}
 				{course.cost && <AlertBanner text={`${course.cost} Lab Kit Required`} />}

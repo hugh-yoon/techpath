@@ -132,3 +132,60 @@ export function useSchedule(id: string | null) {
 
 	return { data, error, isLoading, refetch: fetchSchedule }
 }
+
+/**
+ * Fetches all schedules with their schedule_sections, sections, courses, and instructors.
+ * Use for Path Builder or any view that needs multiple semesters at once.
+ */
+export function useAllSchedulesWithSections() {
+	const [data, setData] = useState<ScheduleWithSections[]>([])
+	const [error, setError] = useState<Error | null>(null)
+	const [isLoading, setIsLoading] = useState(true)
+
+	const refetch = useCallback(async () => {
+		setIsLoading(true)
+		setError(null)
+		const { data: rows, error: e } = await supabase
+			.from('schedules')
+			.select(
+				`
+				*,
+				schedule_sections(
+					id,
+					section_id,
+					section:sections(
+						*,
+						course:courses(*),
+						instructor:instructors(*)
+					)
+				)
+			`,
+			)
+			.order('year', { ascending: false })
+			.order('name')
+		if (e) {
+			setError(e as Error)
+			setData([])
+			setIsLoading(false)
+			return
+		}
+		const list = (rows ?? []) as Record<string, unknown>[]
+		const mapped = list.map((r) => {
+			const ss = (r.schedule_sections as Record<string, unknown>[] | null) ?? []
+			const schedule_sections = ss.map((ssRow) => ({
+				id: ssRow.id as string,
+				section_id: ssRow.section_id as string,
+				section: mapSectionWithRelations(ssRow as Record<string, unknown>),
+			}))
+			return { ...r, schedule_sections } as ScheduleWithSections
+		})
+		setData(mapped)
+		setIsLoading(false)
+	}, [])
+
+	useEffect(() => {
+		refetch()
+	}, [refetch])
+
+	return { data, error, isLoading, refetch }
+}

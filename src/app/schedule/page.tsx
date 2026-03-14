@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { CalendarGrid } from '@/components/schedule/calendar-grid'
 import { CreateScheduleDialog } from '@/components/schedule/create-schedule-dialog'
+import { Skeleton } from '@/components/ui/skeleton'
 import { formatDaysShort } from '@/utils/days'
 import { formatTimeDisplay } from '@/utils/time'
 import { cn } from '@/lib/utils'
@@ -187,30 +188,29 @@ export default function SchedulePage() {
 	}, [schedules, activeScheduleId, setActiveScheduleId])
 
 	return (
-		<div className="flex h-[calc(100vh-4rem)] overflow-hidden">
+		<div className="flex h-[calc(100vh-4rem)] flex-col overflow-hidden">
+			<div className="flex shrink-0 items-center justify-between border-b border-gt-navy/10 bg-gradient-to-r from-gt-navy to-gt-navy/90 px-4 py-3">
+				<Link
+					href="/"
+					className="inline-flex items-center gap-1.5 rounded-lg bg-gt-tech-gold px-3 py-1.5 text-sm font-medium text-white hover:bg-gt-tech-medium-gold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gt-tech-gold focus-visible:ring-offset-2 focus-visible:ring-offset-gt-navy"
+					aria-label="Home"
+				>
+					<svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+						<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-7-1a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-7-1h12" />
+					</svg>
+					Home
+				</Link>
+				<h1 className="text-lg font-bold text-gt-tech-gold">Schedule Builder</h1>
+				<div className="w-14" aria-hidden />
+			</div>
+			<div className="flex min-h-0 flex-1 overflow-hidden">
 			<aside
 				className={cn(
 					'flex h-full shrink-0 flex-col overflow-y-auto overflow-x-hidden border-r border-gt-pi-mile bg-gt-diploma transition-[width] duration-300 ease-in-out dark:border-gt-gray-matter dark:bg-surface',
 					sidebarCollapsed ? 'w-24 p-2' : 'w-72 p-4',
 				)}
 			>
-				<div className="flex shrink-0 items-center justify-between gap-1">
-					<Link
-						href="/"
-						className={cn(
-							'flex min-w-0 items-center gap-2 rounded text-sm font-medium text-gt-navy hover:bg-gt-tech-gold/20 hover:text-gt-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
-							sidebarCollapsed ? 'h-9 w-9 shrink-0 justify-center p-0' : 'px-2 py-2',
-						)}
-						title="Home"
-					>
-						{sidebarCollapsed ? (
-							<svg className="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-								<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-7-1a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-7-1h12" />
-							</svg>
-						) : (
-							'Home'
-						)}
-					</Link>
+				<div className="flex shrink-0 items-center justify-end">
 					<Button
 						variant="ghost"
 						size="icon"
@@ -325,9 +325,49 @@ export default function SchedulePage() {
 			</aside>
 			<main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
 				{schedulesLoading ? (
-					<div className="p-4 text-gt-gray-matter dark:text-foreground-muted">Loading schedules…</div>
+					<div className="p-4" aria-hidden>
+						<div className="rounded-lg border border-gt-pi-mile dark:border-gt-gray-matter overflow-hidden">
+							<div className="flex border-b border-gt-pi-mile dark:border-gt-gray-matter">
+								{Array.from({ length: 6 }).map((_, i) => (
+									<Skeleton key={i} className="h-10 flex-1 min-w-[60px]" />
+								))}
+							</div>
+							<div className="flex">
+								<div className="w-14 shrink-0 space-y-1 border-r border-gt-pi-mile p-1 dark:border-gt-gray-matter">
+									{Array.from({ length: 8 }).map((_, i) => (
+										<Skeleton key={i} className="h-4 w-10" />
+									))}
+								</div>
+								<div className="flex-1 grid grid-cols-5 gap-px bg-gt-pi-mile dark:bg-gt-gray-matter">
+									{Array.from({ length: 40 }).map((_, i) => (
+										<Skeleton key={i} className="h-12 bg-gt-diploma dark:bg-surface" />
+									))}
+								</div>
+							</div>
+						</div>
+					</div>
 				) : scheduleLoading && activeScheduleId ? (
-					<div className="p-4 text-gt-gray-matter dark:text-foreground-muted">Loading schedule…</div>
+					<div className="p-4" aria-hidden>
+						<div className="rounded-lg border border-gt-pi-mile dark:border-gt-gray-matter overflow-hidden">
+							<div className="flex border-b border-gt-pi-mile dark:border-gt-gray-matter">
+								{Array.from({ length: 6 }).map((_, i) => (
+									<Skeleton key={i} className="h-10 flex-1 min-w-[60px]" />
+								))}
+							</div>
+							<div className="flex">
+								<div className="w-14 shrink-0 space-y-1 border-r border-gt-pi-mile p-1 dark:border-gt-gray-matter">
+									{Array.from({ length: 8 }).map((_, i) => (
+										<Skeleton key={i} className="h-4 w-10" />
+									))}
+								</div>
+								<div className="flex-1 grid grid-cols-5 gap-px bg-gt-pi-mile dark:bg-gt-gray-matter">
+									{Array.from({ length: 40 }).map((_, i) => (
+										<Skeleton key={i} className="h-12 bg-gt-diploma dark:bg-surface" />
+									))}
+								</div>
+							</div>
+						</div>
+					</div>
 				) : !activeScheduleId || !activeSchedule ? (
 					<div className="p-4 text-gt-gray-matter dark:text-foreground-muted">
 						Create or select a schedule to see the calendar.
@@ -345,6 +385,7 @@ export default function SchedulePage() {
 					</div>
 				)}
 			</main>
+			</div>
 		</div>
 	)
 }
