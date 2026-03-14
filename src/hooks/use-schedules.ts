@@ -79,13 +79,12 @@ export function useSchedule(id: string | null) {
 	const [error, setError] = useState<Error | null>(null)
 	const [isLoading, setIsLoading] = useState(true)
 
-	useEffect(() => {
+	const fetchSchedule = useCallback(() => {
 		if (!id) {
 			setData(null)
 			setIsLoading(false)
 			return
 		}
-		let cancelled = false
 		setIsLoading(true)
 		setError(null)
 		supabase
@@ -107,7 +106,6 @@ export function useSchedule(id: string | null) {
 			.eq('id', id)
 			.single()
 			.then(({ data: row, error: e }) => {
-				if (cancelled) return
 				if (e) {
 					setError(e as Error)
 					setData(null)
@@ -126,10 +124,11 @@ export function useSchedule(id: string | null) {
 				}
 				setIsLoading(false)
 			})
-		return () => {
-			cancelled = true
-		}
 	}, [id])
 
-	return { data, error, isLoading }
+	useEffect(() => {
+		fetchSchedule()
+	}, [fetchSchedule])
+
+	return { data, error, isLoading, refetch: fetchSchedule }
 }

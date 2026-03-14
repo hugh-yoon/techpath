@@ -15,10 +15,11 @@ const buttonVariants = cva(
 				destructive:
 					'bg-red-600 text-white hover:bg-red-700 dark:bg-red-900 dark:hover:bg-red-800',
 				outline:
-					'border border-gt-pi-mile bg-gt-white hover:bg-gt-pi-mile dark:border-gt-gray-matter dark:bg-surface dark:hover:bg-gt-gray-matter',
+					'border border-gt-pi-mile bg-gt-white text-gt-navy hover:bg-gt-tech-gold/20 dark:border-gt-gray-matter dark:bg-surface dark:text-foreground dark:hover:bg-gt-tech-gold/20',
 				secondary:
 					'bg-gt-pi-mile text-gt-navy hover:bg-gt-pi-mile/80',
-				ghost: 'hover:bg-gt-pi-mile dark:hover:bg-gt-gray-matter',
+				ghost:
+					'text-gt-navy hover:bg-gt-tech-gold/20 dark:text-foreground dark:hover:bg-gt-tech-gold/20',
 			},
 			size: {
 				default: 'h-10 px-4 py-2',

@@ -3,7 +3,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useSchedules, useSchedule } from '@/hooks'
-import { BackLink } from '@/components/ui/back-link'
 import { useScheduleStore } from '@/stores/schedule-store'
 import { supabase } from '@/lib/supabaseClient'
 import { Button } from '@/components/ui/button'
@@ -103,19 +102,55 @@ export default function SchedulePage() {
 	const { data: schedules, isLoading: schedulesLoading, refetch } = useSchedules()
 	const activeScheduleId = useScheduleStore((s) => s.activeScheduleId)
 	const setActiveScheduleId = useScheduleStore((s) => s.setActiveScheduleId)
-	const { data: activeSchedule, isLoading: scheduleLoading } = useSchedule(
-		activeScheduleId ?? null,
-	)
+	const { data: activeSchedule, isLoading: scheduleLoading, refetch: refetchActiveSchedule } =
+		useSchedule(activeScheduleId ?? null)
 	const [createOpen, setCreateOpen] = useState(false)
 	const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+	const [contentFaded, setContentFaded] = useState(false)
+	const [contentFadeIn, setContentFadeIn] = useState(false)
+
+	useEffect(() => {
+		if (!contentFaded) return
+		const t = setTimeout(() => {
+			setSidebarCollapsed(true)
+			setContentFaded(false)
+		}, 150)
+		return () => clearTimeout(t)
+	}, [contentFaded])
+
+	useEffect(() => {
+		if (!contentFadeIn) return
+		const t = setTimeout(() => setContentFadeIn(false), 300)
+		return () => clearTimeout(t)
+	}, [contentFadeIn])
+
+	const handleCollapseClick = useCallback(() => {
+		if (sidebarCollapsed) {
+			setSidebarCollapsed(false)
+			setContentFadeIn(true)
+		} else {
+			setContentFaded(true)
+		}
+	}, [sidebarCollapsed])
+
+	const showContent = !sidebarCollapsed || contentFaded
+	const contentOpacity = contentFaded ? 0 : contentFadeIn ? 0 : 1
 
 	const handleRemoveSection = useCallback(
 		async (scheduleSectionId: string) => {
 			if (!confirm('Remove this class from your schedule?')) return
-			await supabase.from('schedule_sections').delete().eq('id', scheduleSectionId)
+			const { error } = await supabase
+				.from('schedule_sections')
+				.delete()
+				.eq('id', scheduleSectionId)
+			if (error) {
+				console.error('Failed to remove section:', error)
+				return
+			}
+			await refetchActiveSchedule()
 			await refetch()
 		},
-		[refetch],
+		[refetch, refetchActiveSchedule],
 	)
 
 	const handleDeleteSchedule = useCallback(
@@ -155,21 +190,32 @@ export default function SchedulePage() {
 		<div className="flex h-[calc(100vh-4rem)] overflow-hidden">
 			<aside
 				className={cn(
-					'flex h-full shrink-0 flex-col overflow-y-auto border-r border-gt-pi-mile bg-gt-diploma transition-[width] duration-200 dark:border-gt-gray-matter dark:bg-surface',
-					sidebarCollapsed ? 'w-12 p-2' : 'w-72 p-4',
+					'flex h-full shrink-0 flex-col overflow-y-auto overflow-x-hidden border-r border-gt-pi-mile bg-gt-diploma transition-[width] duration-300 ease-in-out dark:border-gt-gray-matter dark:bg-surface',
+					sidebarCollapsed ? 'w-24 p-2' : 'w-72 p-4',
 				)}
 			>
-				<div className="flex items-center justify-between gap-2">
-					{!sidebarCollapsed && (
-						<h2 className="text-sm font-semibold uppercase tracking-wide text-gt-gray-matter dark:text-gt-pi-mile">
-							Schedules
-						</h2>
-					)}
+				<div className="flex shrink-0 items-center justify-between gap-1">
+					<Link
+						href="/"
+						className={cn(
+							'flex min-w-0 items-center gap-2 rounded text-sm font-medium text-gt-navy hover:bg-gt-tech-gold/20 hover:text-gt-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+							sidebarCollapsed ? 'h-9 w-9 shrink-0 justify-center p-0' : 'px-2 py-2',
+						)}
+						title="Home"
+					>
+						{sidebarCollapsed ? (
+							<svg className="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+								<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-7-1a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-7-1h12" />
+							</svg>
+						) : (
+							'Home'
+						)}
+					</Link>
 					<Button
 						variant="ghost"
 						size="icon"
-						className="h-8 w-8 shrink-0"
-						onClick={() => setSidebarCollapsed((c) => !c)}
+						className="h-8 w-8 shrink-0 hover:!bg-gt-tech-gold/20 hover:!text-gt-navy"
+						onClick={handleCollapseClick}
 						aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
 						title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
 					>
@@ -188,12 +234,22 @@ export default function SchedulePage() {
 						</svg>
 					</Button>
 				</div>
-				{!sidebarCollapsed && (
-					<>
+				{showContent && (
+					<h2
+						className="mt-2 shrink-0 min-w-0 truncate text-sm font-semibold uppercase tracking-wide text-gt-navy transition-opacity duration-150"
+						style={{ opacity: contentOpacity }}
+					>
+						Schedules
+					</h2>
+				)}
+				{showContent && (
+					<div
+						className="min-w-0 flex-1 overflow-hidden transition-opacity duration-150"
+						style={{ opacity: contentOpacity }}
+					>
 						<Button
-							variant="outline"
 							size="sm"
-							className="mt-2 w-full"
+							className="mt-2 w-full bg-gt-tech-gold text-gt-navy hover:opacity-90"
 							onClick={() => setCreateOpen(true)}
 						>
 							Create schedule
@@ -210,56 +266,56 @@ export default function SchedulePage() {
 								/>
 							))}
 						</ul>
-					</>
-				)}
-				{!sidebarCollapsed && activeSchedule && (
-					<>
-						<div className="mt-6 flex items-center justify-between">
-							<span className="text-sm font-medium text-gt-navy dark:text-foreground">Credit hours</span>
-							<span className="text-sm text-gt-gray-matter dark:text-foreground-muted">
-								{totalCredits}
-							</span>
-						</div>
-						<h3 className="mt-4 text-sm font-semibold text-gt-navy dark:text-foreground">Classes</h3>
-						<ul className="mt-2 space-y-2">
-							{activeSchedule.schedule_sections?.map((ss) => (
-								<li
-									key={ss.id}
-									className="rounded-lg border border-gt-pi-mile bg-gt-white p-2 dark:border-gt-gray-matter dark:bg-surface"
-								>
-									<Link
-										href={`/course/${ss.section?.course_id}`}
-										className="text-sm font-medium text-gt-navy hover:underline dark:text-foreground"
-									>
-										{ss.section?.course?.department}{' '}
-										{ss.section?.course?.course_number}{' '}
-										{ss.section?.course?.course_name}
-									</Link>
-									<p className="mt-0.5 text-xs text-gt-gray-matter dark:text-foreground-muted">
-										Section {ss.section?.section_code} ·{' '}
-										{ss.section?.instructor?.name ?? 'TBA'} ·{' '}
-										{ss.section
-											? `${formatDaysShort(ss.section.day_pattern)} ${formatTimeDisplay(ss.section.start_time)}`
-											: ''}
+						{activeSchedule && (
+							<>
+								<div className="mt-6 flex items-center justify-between">
+									<span className="text-sm font-medium text-gt-navy dark:text-foreground">Credit hours</span>
+									<span className="text-sm text-gt-gray-matter dark:text-foreground-muted">
+										{totalCredits}
+									</span>
+								</div>
+								<h3 className="mt-4 text-sm font-semibold text-gt-navy dark:text-foreground">Classes</h3>
+								<ul className="mt-2 space-y-2">
+									{activeSchedule.schedule_sections?.map((ss) => (
+										<li
+											key={ss.id}
+											className="rounded-lg border border-gt-pi-mile bg-gt-white p-2 dark:border-gt-gray-matter dark:bg-surface"
+										>
+											<Link
+												href={`/course/${ss.section?.course_id}`}
+												className="text-sm font-medium text-gt-navy hover:underline dark:text-foreground"
+											>
+												{ss.section?.course?.department}{' '}
+												{ss.section?.course?.course_number}{' '}
+												{ss.section?.course?.course_name}
+											</Link>
+											<p className="mt-0.5 text-xs text-gt-gray-matter dark:text-foreground-muted">
+												Section {ss.section?.section_code} ·{' '}
+												{ss.section?.instructor?.name ?? 'TBA'} ·{' '}
+												{ss.section
+													? `${formatDaysShort(ss.section.day_pattern)} ${formatTimeDisplay(ss.section.start_time)}`
+													: ''}
+											</p>
+											<Button
+												variant="ghost"
+												size="sm"
+												className="mt-1 h-7 text-xs text-red-600"
+												onClick={() => handleRemoveSection(ss.id)}
+												aria-label="Remove from schedule"
+											>
+												Remove
+											</Button>
+										</li>
+									))}
+								</ul>
+								{!activeSchedule.schedule_sections?.length && (
+									<p className="mt-2 text-sm text-gt-gray-matter dark:text-foreground-muted">
+										No classes. Add from course pages.
 									</p>
-									<Button
-										variant="ghost"
-										size="sm"
-										className="mt-1 h-7 text-xs text-red-600"
-										onClick={() => handleRemoveSection(ss.id)}
-										aria-label="Remove from schedule"
-									>
-										Remove
-									</Button>
-								</li>
-							))}
-						</ul>
-						{!activeSchedule.schedule_sections?.length && (
-							<p className="mt-2 text-sm text-gt-gray-matter dark:text-foreground-muted">
-								No classes. Add from course pages.
-							</p>
+								)}
+							</>
 						)}
-					</>
+					</div>
 				)}
 				<CreateScheduleDialog
 					open={createOpen}
@@ -268,9 +324,6 @@ export default function SchedulePage() {
 				/>
 			</aside>
 			<main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-				<div className="shrink-0 border-b border-gt-pi-mile bg-gt-white px-4 py-2 dark:border-gt-gray-matter dark:bg-background">
-					<BackLink href="/">Home</BackLink>
-				</div>
 				{schedulesLoading ? (
 					<div className="p-4 text-gt-gray-matter dark:text-foreground-muted">Loading schedules…</div>
 				) : scheduleLoading && activeScheduleId ? (

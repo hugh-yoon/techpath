@@ -104,3 +104,11 @@ export interface InstructorReview {
 	rating: number
 	comment: string | null
 }
+
+export interface SectionReview {
+	id: string
+	section_id: string
+	rating: number
+	difficulty: number
+	comment: string | null
+}

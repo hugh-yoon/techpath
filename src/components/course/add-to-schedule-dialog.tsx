@@ -128,7 +128,6 @@ export function AddToScheduleDialog({
 						</Select>
 						<Button
 							type="button"
-							variant="outline"
 							size="sm"
 							onClick={() => {
 								setCreating(true)

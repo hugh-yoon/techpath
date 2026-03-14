@@ -2,7 +2,6 @@
 
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { BackLink } from '@/components/ui/back-link'
 import {
 	DndContext,
 	DragEndEvent,
@@ -153,7 +152,7 @@ function AddScheduleToCareerButton({
 
 	return (
 		<>
-			<Button variant="outline" size="sm" className="mt-2" onClick={() => setOpen(true)}>
+			<Button size="sm" className="mt-2 bg-gt-tech-gold text-gt-navy hover:opacity-90" onClick={() => setOpen(true)}>
 				Add schedule to career
 			</Button>
 			<Dialog open={open} onOpenChange={setOpen}>
@@ -451,25 +450,66 @@ export default function CareerPage() {
 		if (careers.length > 0 && !activeCareerId) setActiveCareerId(careers[0].id)
 	}, [careers, activeCareerId, setActiveCareerId])
 
+	const [contentFaded, setContentFaded] = useState(false)
+	const [contentFadeIn, setContentFadeIn] = useState(false)
+
+	useEffect(() => {
+		if (!contentFaded) return
+		const t = setTimeout(() => {
+			setSidebarCollapsed(true)
+			setContentFaded(false)
+		}, 150)
+		return () => clearTimeout(t)
+	}, [contentFaded])
+
+	useEffect(() => {
+		if (!contentFadeIn) return
+		const t = setTimeout(() => setContentFadeIn(false), 300)
+		return () => clearTimeout(t)
+	}, [contentFadeIn])
+
+	const handleCollapseClick = useCallback(() => {
+		if (sidebarCollapsed) {
+			setSidebarCollapsed(false)
+			setContentFadeIn(true)
+		} else {
+			setContentFaded(true)
+		}
+	}, [sidebarCollapsed])
+
+	const showContent = !sidebarCollapsed || contentFaded
+	const contentOpacity = contentFaded ? 0 : contentFadeIn ? 0 : 1
+
 	return (
 		<div className="flex h-[calc(100vh-4rem)]">
 			<aside
 				className={cn(
-					'shrink-0 border-r border-gt-pi-mile bg-gt-diploma transition-[width] duration-200 dark:border-gt-gray-matter dark:bg-surface',
-					sidebarCollapsed ? 'w-12 p-2' : 'w-64 p-4',
+					'flex h-full flex-col shrink-0 overflow-hidden border-r border-gt-pi-mile bg-gt-diploma transition-[width] duration-300 ease-in-out dark:border-gt-gray-matter dark:bg-surface',
+					sidebarCollapsed ? 'w-24 p-2' : 'w-64 p-4',
 				)}
 			>
-				<div className="flex items-center justify-between gap-2">
-					{!sidebarCollapsed && (
-						<h2 className="text-sm font-semibold uppercase tracking-wide text-gt-gray-matter dark:text-gt-pi-mile">
-							Career plans
-						</h2>
-					)}
+				<div className="flex shrink-0 items-center justify-between gap-1">
+					<Link
+						href="/"
+						className={cn(
+							'flex min-w-0 items-center gap-2 rounded text-sm font-medium text-gt-navy hover:bg-gt-tech-gold/20 hover:text-gt-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+							sidebarCollapsed ? 'h-9 w-9 shrink-0 justify-center p-0' : 'px-2 py-2',
+						)}
+						title="Home"
+					>
+						{sidebarCollapsed ? (
+							<svg className="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+								<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-7-1a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-7-1h12" />
+							</svg>
+						) : (
+							'Home'
+						)}
+					</Link>
 					<Button
 						variant="ghost"
 						size="icon"
-						className="h-8 w-8 shrink-0"
-						onClick={() => setSidebarCollapsed((c) => !c)}
+						className="h-8 w-8 shrink-0 hover:!bg-gt-tech-gold/20 hover:!text-gt-navy"
+						onClick={handleCollapseClick}
 						aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
 						title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
 					>
@@ -488,12 +528,22 @@ export default function CareerPage() {
 						</svg>
 					</Button>
 				</div>
-				{!sidebarCollapsed && (
-					<>
+				{showContent && (
+					<h2
+						className="mt-2 shrink-0 text-sm font-semibold uppercase tracking-wide text-gt-navy transition-opacity duration-150 min-w-0 truncate"
+						style={{ opacity: contentOpacity }}
+					>
+						Career plans
+					</h2>
+				)}
+				{showContent && (
+					<div
+						className="min-w-0 flex-1 overflow-hidden transition-opacity duration-150"
+						style={{ opacity: contentOpacity }}
+					>
 						<Button
-							variant="outline"
 							size="sm"
-							className="mt-2 w-full"
+							className="mt-2 w-full bg-gt-tech-gold text-gt-navy hover:opacity-90"
 							onClick={() => setCreateOpen(true)}
 						>
 							Create career plan
@@ -510,7 +560,7 @@ export default function CareerPage() {
 								/>
 							))}
 						</ul>
-					</>
+					</div>
 				)}
 				<CreateCareerDialog
 					open={createOpen}
@@ -519,9 +569,6 @@ export default function CareerPage() {
 				/>
 			</aside>
 			<main className="min-w-0 flex-1 flex flex-col overflow-auto">
-				<div className="shrink-0 border-b border-gt-pi-mile bg-gt-white px-6 py-2 dark:border-gt-gray-matter dark:bg-background">
-					<BackLink href="/">Home</BackLink>
-				</div>
 				<div className="flex-1 p-6">
 				{careersLoading ? (
 					<p className="text-gt-gray-matter dark:text-foreground-muted">Loading…</p>

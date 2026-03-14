@@ -2,20 +2,19 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabaseClient'
-import type { CourseReview, InstructorReview } from '@/types'
+import type { CourseReview, InstructorReview, SectionReview } from '@/types'
 
 export function useCourseReviews(courseId: string | null) {
 	const [data, setData] = useState<CourseReview[]>([])
 	const [error, setError] = useState<Error | null>(null)
 	const [isLoading, setIsLoading] = useState(true)
 
-	useEffect(() => {
+	const fetchReviews = useCallback(() => {
 		if (!courseId) {
 			setData([])
 			setIsLoading(false)
 			return
 		}
-		let cancelled = false
 		setIsLoading(true)
 		setError(null)
 		supabase
@@ -24,7 +23,6 @@ export function useCourseReviews(courseId: string | null) {
 			.eq('course_id', courseId)
 			.order('id', { ascending: false })
 			.then(({ data: rows, error: e }) => {
-				if (cancelled) return
 				if (e) {
 					setError(e as Error)
 					setData([])
@@ -33,12 +31,13 @@ export function useCourseReviews(courseId: string | null) {
 				}
 				setIsLoading(false)
 			})
-		return () => {
-			cancelled = true
-		}
 	}, [courseId])
 
-	return { data, error, isLoading }
+	useEffect(() => {
+		fetchReviews()
+	}, [fetchReviews])
+
+	return { data, error, isLoading, refetch: fetchReviews }
 }
 
 export function useInstructorReviews(instructorId: string | null) {
@@ -97,6 +96,70 @@ export function useCreateCourseReview(courseId: string) {
 			return e == null
 		},
 		[courseId],
+	)
+
+	return { create, isLoading, error }
+}
+
+export function useSectionReviews(sectionId: string | null) {
+	const [data, setData] = useState<SectionReview[]>([])
+	const [error, setError] = useState<Error | null>(null)
+	const [isLoading, setIsLoading] = useState(true)
+
+	const fetchReviews = useCallback(() => {
+		if (!sectionId) {
+			setData([])
+			setIsLoading(false)
+			return
+		}
+		setIsLoading(true)
+		setError(null)
+		supabase
+			.from('section_reviews')
+			.select('*')
+			.eq('section_id', sectionId)
+			.order('id', { ascending: false })
+			.then(({ data: rows, error: e }) => {
+				if (e) {
+					setError(e as Error)
+					setData([])
+				} else {
+					setData((rows ?? []) as SectionReview[])
+				}
+				setIsLoading(false)
+			})
+	}, [sectionId])
+
+	useEffect(() => {
+		let cancelled = false
+		fetchReviews()
+		return () => {
+			cancelled = true
+		}
+	}, [fetchReviews])
+
+	return { data, error, isLoading, refetch: fetchReviews }
+}
+
+export function useCreateSectionReview(sectionId: string) {
+	const [isLoading, setIsLoading] = useState(false)
+	const [error, setError] = useState<Error | null>(null)
+
+	const create = useCallback(
+		async (rating: number, difficulty: number, comment: string | null) => {
+			setIsLoading(true)
+			setError(null)
+			const { error: e } = await supabase.from('section_reviews').insert({
+				section_id: sectionId,
+				rating,
+				difficulty,
+				comment: comment || null,
+			})
+			setIsLoading(false)
+			if (e) setError(e as Error)
+			return e == null
+		},
+		[sectionId],
 	)
 
 	return { create, isLoading, error }

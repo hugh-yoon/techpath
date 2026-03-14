@@ -42,6 +42,16 @@ Open [http://localhost:3000](http://localhost:3000).
 - `npm run build` — production build
 - `npm run start` — run production server (after `npm run build`)
 - `npm run lint` — run ESLint
+- `npm run seed` — generate `scripts/seed/seed.sql` from Georgia Tech catalog data (courses, random instructors, sections)
+
+### 3. Database seed (optional)
+
+To populate the Supabase database with Georgia Tech catalog courses and synthetic instructors/sections:
+
+1. Generate the seed file: `npm run seed`
+2. In the [Supabase Dashboard](https://supabase.com/dashboard) → SQL Editor, run the contents of `scripts/seed/seed.sql` (or run it via `psql` if you have a direct connection).
+
+Run the seed **once on empty tables**. To re-seed, truncate dependent tables (e.g. `schedule_sections`, `sections`, `courses`, `instructors`) in an order that respects foreign keys, then run the SQL again.
 
 **See PRD in RULES and System Architecture**
 
