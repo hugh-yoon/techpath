@@ -4,15 +4,22 @@ export default function Home() {
 	return (
 		<div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-gt-white p-8">
 			<h1 className="text-3xl font-semibold tracking-tight text-gt-navy">
-				TechPath
+				TechPlan
 			</h1>
 			<p className="text-gt-gray-matter">
-				Georgia Tech course information and planning
+				Georgia Tech academic intelligence platform for course planning and career paths
 			</p>
 			<nav
-				className="mt-8 grid max-w-2xl grid-cols-1 gap-4 sm:grid-cols-2"
+				className="mt-8 grid max-w-3xl grid-cols-1 gap-4 sm:grid-cols-2"
 				aria-label="Main"
 			>
+				<Link
+					href="/discovery"
+					className="flex flex-col rounded-xl border-2 border-gt-tech-gold bg-gradient-to-br from-gt-white to-gt-diploma p-6 text-left shadow-sm transition-colors hover:border-gt-tech-medium-gold hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
+				>
+					<span className="text-lg font-semibold text-gt-navy">✨ Discovery Deck</span>
+					<span className="mt-1 text-sm text-gt-gray-matter">Swipe through courses to find your next class</span>
+				</Link>
 				<Link
 					href="/dashboard"
 					className="flex flex-col rounded-xl border-2 border-gt-pi-mile bg-gt-white p-6 text-left shadow-sm transition-colors hover:border-gt-tech-gold hover:bg-gt-diploma focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
@@ -26,6 +33,13 @@ export default function Home() {
 				>
 					<span className="text-lg font-semibold text-gt-navy">Schedule Builder</span>
 					<span className="mt-1 text-sm text-gt-gray-matter">Build semester schedules</span>
+				</Link>
+				<Link
+					href="/path-builder"
+					className="flex flex-col rounded-xl border-2 border-gt-navy/20 bg-gt-white p-6 text-left shadow-sm transition-colors hover:border-gt-tech-gold hover:bg-gt-diploma focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
+				>
+					<span className="text-lg font-semibold text-gt-navy">🛣️ Path Builder</span>
+					<span className="mt-1 text-sm text-gt-gray-matter">Visualize your learning journey</span>
 				</Link>
 				<Link
 					href="/career"
