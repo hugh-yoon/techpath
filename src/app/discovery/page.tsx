@@ -47,13 +47,16 @@ export default function DiscoveryPage() {
 			/>
 
 			{/* Main content */}
-			<div className="max-w-7xl mx-auto px-6 py-12">
-				<div className="grid grid-cols-3 gap-8">
+			<div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
+				<div className="grid grid-cols-3 gap-5 sm:gap-6">
 					{/* Deck */}
 					<div className="col-span-2">
-						<div className="rounded-2xl bg-gt-diploma border-2 border-gt-navy/10 p-8">
+						<div className="rounded-2xl border-2 border-gt-navy/10 bg-gt-diploma p-4 sm:p-5">
 							{coursesLoading ? (
-								<div className="flex h-96 flex-col items-center justify-center gap-4 p-6" aria-hidden>
+								<div
+									className="flex h-[min(28rem,72vh)] flex-col items-center justify-center gap-3 p-4"
+									aria-hidden
+								>
 									<Skeleton className="h-64 w-full max-w-sm rounded-2xl" />
 									<div className="flex gap-2">
 										<Skeleton className="h-10 w-24 rounded-lg" />
@@ -82,7 +85,7 @@ export default function DiscoveryPage() {
 							</h3>
 							{addedCourses.length === 0 ? (
 								<p className="text-sm text-gt-gray-matter">
-									Swipe right to add courses to your list
+									Use Add or the right arrow to save courses here
 								</p>
 							) : (
 								<div className="space-y-2">
@@ -101,20 +104,9 @@ export default function DiscoveryPage() {
 							)}
 						</div>
 
-						{/* Stats */}
-						<div className="grid grid-cols-2 gap-2">
-							<div className="rounded-xl bg-gt-navy p-4 text-center">
-								<div className="text-2xl font-bold text-gt-tech-gold">
-									{courses.length}
-								</div>
-								<div className="text-xs text-gt-white/60 mt-1">Total Courses</div>
-							</div>
-							<div className="rounded-xl bg-gt-tech-gold p-4 text-center">
-								<div className="text-2xl font-bold text-gt-navy">
-									{Math.round((addedCourses.length / Math.max(courses.length, 1)) * 100)}%
-								</div>
-								<div className="text-xs text-gt-navy/60 mt-1">Added</div>
-							</div>
+						<div className="rounded-xl bg-gt-navy p-4 text-center">
+							<div className="text-2xl font-bold text-gt-tech-gold">{courses.length}</div>
+							<div className="mt-1 text-xs text-gt-white/70">Courses in view</div>
 						</div>
 
 						{/* Subject filter */}

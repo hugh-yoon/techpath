@@ -48,6 +48,13 @@ export function CourseFormDialog({
 			description: course?.description ?? null,
 			credit_hours: course?.credit_hours ?? 3,
 			difficulty_rating: course?.difficulty_rating ?? null,
+			deck_summary: course?.deck_summary ?? null,
+			red_flag_lines: course?.course_red_flags?.length
+				? [...course.course_red_flags]
+						.sort((a, b) => a.sort_order - b.sort_order)
+						.map((f) => f.body)
+						.join('\n')
+				: '',
 		},
 	})
 
@@ -66,6 +73,13 @@ export function CourseFormDialog({
 				description: course?.description ?? null,
 				credit_hours: course?.credit_hours ?? 3,
 				difficulty_rating: course?.difficulty_rating ?? null,
+				deck_summary: course?.deck_summary ?? null,
+				red_flag_lines: course?.course_red_flags?.length
+					? [...course.course_red_flags]
+							.sort((a, b) => a.sort_order - b.sort_order)
+							.map((f) => f.body)
+							.join('\n')
+					: '',
 			})
 		}
 	}, [open, course])
@@ -77,7 +91,7 @@ export function CourseFormDialog({
 
 	return (
 		<Dialog open={open} onOpenChange={handleOpenChange}>
-			<DialogContent className="sm:max-w-md" aria-describedby={undefined}>
+			<DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg" aria-describedby={undefined}>
 				<DialogHeader>
 					<DialogTitle>{isEdit ? 'Edit Course' : 'Create Course'}</DialogTitle>
 				</DialogHeader>
@@ -139,7 +153,39 @@ export function CourseFormDialog({
 						/>
 					</div>
 					<div className="grid gap-2">
-						<Label htmlFor="credit_hours">Credit Hours</Label>
+						<Label htmlFor="deck_summary">Discovery deck summary</Label>
+						<Textarea
+							id="deck_summary"
+							rows={2}
+							placeholder="One short line for the discovery card (optional)"
+							{...form.register('deck_summary')}
+							value={form.watch('deck_summary') ?? ''}
+							onChange={(e) =>
+								form.setValue('deck_summary', e.target.value || null)
+							}
+						/>
+						{form.formState.errors.deck_summary && (
+							<p className="text-sm text-red-600" role="alert">
+								{form.formState.errors.deck_summary.message}
+							</p>
+						)}
+					</div>
+					<div className="grid gap-2">
+						<Label htmlFor="red_flag_lines">Red flags (one per line)</Label>
+						<Textarea
+							id="red_flag_lines"
+							rows={4}
+							placeholder="Student-reported cautions; leave empty for none"
+							{...form.register('red_flag_lines')}
+						/>
+						{form.formState.errors.red_flag_lines && (
+							<p className="text-sm text-red-600" role="alert">
+								{form.formState.errors.red_flag_lines.message}
+							</p>
+						)}
+					</div>
+					<div className="grid gap-2">
+						<Label htmlFor="credit_hours">Credit hours</Label>
 						<Input
 							id="credit_hours"
 							type="number"
@@ -152,7 +198,7 @@ export function CourseFormDialog({
 						)}
 					</div>
 					<div className="grid gap-2">
-						<Label htmlFor="difficulty_rating">Difficulty (1-5)</Label>
+						<Label htmlFor="difficulty_rating">Difficulty (1–5)</Label>
 						<Input
 							id="difficulty_rating"
 							type="number"

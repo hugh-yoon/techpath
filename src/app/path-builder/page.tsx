@@ -230,7 +230,7 @@ export default function PathBuilderPage() {
 													{selectedCourse.description}
 												</p>
 												<p className="text-xs text-gt-gray-matter mt-2">
-													{selectedCourse.credit_hours} credits
+													{selectedCourse.credit_hours} credit hours
 												{selectedCourse.difficulty_rating != null &&
 													` • Difficulty: ${selectedCourse.difficulty_rating}/5`}
 												</p>

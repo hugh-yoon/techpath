@@ -52,7 +52,16 @@ export function useCourses() {
 		setError(null)
 		const { data: rows, error: e } = await supabase
 			.from('courses')
-			.select('*')
+			.select(
+				`
+				*,
+				course_red_flags (
+					id,
+					body,
+					sort_order
+				)
+			`,
+			)
 			.order('department')
 			.order('course_number')
 		if (e) {
@@ -87,7 +96,16 @@ export function useCourse(id: string | null) {
 		setError(null)
 		supabase
 			.from('courses')
-			.select('*')
+			.select(
+				`
+				*,
+				course_red_flags (
+					id,
+					body,
+					sort_order
+				)
+			`,
+			)
 			.eq('id', id)
 			.single()
 			.then(({ data: row, error: e }) => {

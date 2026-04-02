@@ -22,17 +22,26 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { formatDaysShort } from '@/utils/days'
 import { formatTimeDisplay } from '@/utils/time'
 
+const RESULT_CARD_MIN_H = 'min-h-[13.5rem]'
+
 function DashboardResultsSkeleton() {
 	return (
-		<ul className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-hidden>
+		<ul
+			className="mt-6 grid grid-cols-1 items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-3"
+			aria-hidden
+		>
 			{Array.from({ length: 6 }).map((_, i) => (
-				<li key={i} className="rounded-xl border-2 border-gt-navy/10 bg-gt-white p-4 dark:border-gt-gray-matter dark:bg-surface">
-					<Skeleton className="h-5 w-32" />
-					<Skeleton className="mt-2 h-4 w-full max-w-[200px]" />
-					<div className="mt-3 space-y-1.5">
-						<Skeleton className="h-3 w-full" />
-						<Skeleton className="h-3 w-4/5" />
-						<Skeleton className="h-3 w-3/5" />
+				<li key={i} className="flex h-full min-h-0">
+					<div
+						className={`flex w-full flex-col rounded-xl border-2 border-gt-navy/10 bg-gt-white p-4 dark:border-gt-gray-matter dark:bg-surface ${RESULT_CARD_MIN_H}`}
+					>
+						<Skeleton className="h-5 w-32" />
+						<Skeleton className="mt-2 h-4 w-full max-w-[200px]" />
+						<div className="mt-3 min-h-[4.5rem] flex-1 space-y-1.5">
+							<Skeleton className="h-3 w-full" />
+							<Skeleton className="h-3 w-4/5" />
+							<Skeleton className="h-3 w-3/5" />
+						</div>
 					</div>
 				</li>
 			))}
@@ -140,38 +149,48 @@ export default function DashboardPage() {
 			{isLoading ? (
 				<DashboardResultsSkeleton />
 			) : (
-				<ul className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-label="Search results">
+				<ul
+					className="mt-6 grid grid-cols-1 items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-3"
+					aria-label="Search results"
+				>
 					{results.map((course, i) => (
 						<motion.li
 							key={course.id}
+							className="flex h-full min-h-0"
 							initial={{ opacity: 0, y: 12 }}
 							animate={{ opacity: 1, y: 0 }}
 							transition={{ duration: 0.25, delay: i * 0.03 }}
 						>
 							<Link
 								href={`/course/${course.id}`}
-								className="block rounded-xl border-2 border-gt-navy/10 bg-gt-white p-4 transition-colors hover:border-gt-tech-gold/40 hover:bg-gt-diploma hover:shadow-md dark:border-gt-gray-matter dark:bg-surface dark:hover:bg-gt-gray-matter/50"
+								className={`flex w-full flex-col rounded-xl border-2 border-gt-navy/10 bg-gt-white p-4 transition-colors hover:border-gt-tech-gold/40 hover:bg-gt-diploma hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gt-tech-gold focus-visible:ring-offset-2 dark:border-gt-gray-matter dark:bg-surface dark:hover:bg-gt-gray-matter/50 ${RESULT_CARD_MIN_H}`}
 							>
-								<h2 className="font-semibold text-gt-navy dark:text-foreground">
+								<h2 className="shrink-0 font-semibold text-gt-navy dark:text-foreground">
 									{course.department} {course.course_number}
 								</h2>
-								<p className="mt-1 text-sm text-gt-gray-matter dark:text-foreground-muted">
+								<p className="mt-1 line-clamp-2 shrink-0 text-sm text-gt-gray-matter dark:text-foreground-muted">
 									{course.course_name}
 								</p>
-								{course.sections && course.sections.length > 0 && (
-									<ul className="mt-2 space-y-1 text-xs text-gt-gray-matter dark:text-foreground-muted">
-										{course.sections.slice(0, 3).map((s) => (
-											<li key={s.id}>
-												{s.section_code} — {s.instructor?.name ?? 'TBA'} —{' '}
-												{formatDaysShort(s.day_pattern)}{' '}
-												{formatTimeDisplay(s.start_time)}
-											</li>
-										))}
-										{course.sections.length > 3 && (
-											<li>+{course.sections.length - 3} more</li>
-										)}
-									</ul>
-								)}
+								<div className="mt-2 flex min-h-[4.5rem] flex-1 flex-col">
+									{course.sections && course.sections.length > 0 ? (
+										<ul className="space-y-1 text-xs text-gt-gray-matter dark:text-foreground-muted">
+											{course.sections.slice(0, 3).map((s) => (
+												<li key={s.id}>
+													{s.section_code} — {s.instructor?.name ?? 'TBA'} —{' '}
+													{formatDaysShort(s.day_pattern)}{' '}
+													{formatTimeDisplay(s.start_time)}
+												</li>
+											))}
+											{course.sections.length > 3 && (
+												<li>+{course.sections.length - 3} more</li>
+											)}
+										</ul>
+									) : (
+										<p className="text-xs text-gt-gray-matter/70 dark:text-foreground-muted/80">
+											No sections listed
+										</p>
+									)}
+								</div>
 							</Link>
 						</motion.li>
 					))}

@@ -31,7 +31,7 @@ export function PageHeader({
 						{homeHref && (
 							<Link
 								href={homeHref}
-								className="inline-flex items-center gap-1.5 rounded-lg bg-gt-tech-gold px-3 py-1.5 text-sm font-medium text-white hover:bg-gt-tech-medium-gold mb-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gt-tech-gold focus-visible:ring-offset-2 focus-visible:ring-offset-gt-navy"
+								className="mb-3 inline-flex items-center gap-1.5 rounded-lg bg-gt-tech-gold px-3 py-1.5 text-sm font-medium text-gt-navy hover:bg-gt-tech-medium-gold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gt-tech-gold focus-visible:ring-offset-2 focus-visible:ring-offset-gt-navy"
 								aria-label="Home"
 							>
 								<svg

@@ -25,6 +25,10 @@ export const courseSchema = z.object({
 	description: z.string().nullable(),
 	credit_hours: z.coerce.number().int().min(1).max(99),
 	difficulty_rating: z.coerce.number().int().min(1).max(5).nullable(),
+	/** Discovery deck one-liner (optional). */
+	deck_summary: z.string().max(500).nullable(),
+	/** One red flag per line; replaced on save for this course. */
+	red_flag_lines: z.string().max(8000),
 })
 
 export const instructorSchema = z.object({

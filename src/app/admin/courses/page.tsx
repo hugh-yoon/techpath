@@ -17,6 +17,13 @@ import { CourseFormDialog } from '@/components/admin/course-form-dialog'
 import type { Course } from '@/types'
 import type { CourseFormValues } from '@/lib/validations'
 
+const parseRedFlagLines = (raw: string) =>
+	raw
+		.split('\n')
+		.map((line) => line.trim())
+		.filter(Boolean)
+		.slice(0, 25)
+
 export default function AdminCoursesPage() {
 	const { data: courses, isLoading, error, refetch } = useCourses()
 	const [dialogOpen, setDialogOpen] = useState(false)
@@ -34,27 +41,57 @@ export default function AdminCoursesPage() {
 
 	const handleSubmit = useCallback(
 		async (values: CourseFormValues) => {
+			const lines = parseRedFlagLines(values.red_flag_lines)
+			const row = {
+				department: values.department,
+				course_number: values.course_number,
+				course_name: values.course_name,
+				description: values.description,
+				credit_hours: values.credit_hours,
+				difficulty_rating: values.difficulty_rating,
+				deck_summary: values.deck_summary,
+			}
+
 			if (editingCourse) {
-				await supabase
+				const { error: upErr } = await supabase
 					.from('courses')
-					.update({
-						department: values.department,
-						course_number: values.course_number,
-						course_name: values.course_name,
-						description: values.description,
-						credit_hours: values.credit_hours,
-						difficulty_rating: values.difficulty_rating,
-					})
+					.update(row)
 					.eq('id', editingCourse.id)
+				if (upErr) {
+					console.error(upErr)
+					return
+				}
+				await supabase.from('course_red_flags').delete().eq('course_id', editingCourse.id)
+				if (lines.length > 0) {
+					const { error: flagErr } = await supabase.from('course_red_flags').insert(
+						lines.map((body, sort_order) => ({
+							course_id: editingCourse.id,
+							body,
+							sort_order,
+						})),
+					)
+					if (flagErr) console.error(flagErr)
+				}
 			} else {
-				await supabase.from('courses').insert({
-					department: values.department,
-					course_number: values.course_number,
-					course_name: values.course_name,
-					description: values.description,
-					credit_hours: values.credit_hours,
-					difficulty_rating: values.difficulty_rating,
-				})
+				const { data: created, error: insErr } = await supabase
+					.from('courses')
+					.insert(row)
+					.select('id')
+					.single()
+				if (insErr) {
+					console.error(insErr)
+					return
+				}
+				if (created && lines.length > 0) {
+					const { error: flagErr } = await supabase.from('course_red_flags').insert(
+						lines.map((body, sort_order) => ({
+							course_id: created.id,
+							body,
+							sort_order,
+						})),
+					)
+					if (flagErr) console.error(flagErr)
+				}
 			}
 			await refetch()
 		},
@@ -107,8 +144,9 @@ export default function AdminCoursesPage() {
 								<TableHead>Department</TableHead>
 								<TableHead>Number</TableHead>
 								<TableHead>Name</TableHead>
-								<TableHead>Credits</TableHead>
+								<TableHead>Credit hours</TableHead>
 								<TableHead>Difficulty</TableHead>
+								<TableHead>Discovery</TableHead>
 								<TableHead className="w-[120px]">Actions</TableHead>
 							</TableRow>
 						</TableHeader>
@@ -120,6 +158,16 @@ export default function AdminCoursesPage() {
 									<TableCell>{c.course_name}</TableCell>
 									<TableCell>{c.credit_hours}</TableCell>
 									<TableCell>{c.difficulty_rating ?? '—'}</TableCell>
+									<TableCell className="text-sm text-gt-gray-matter dark:text-foreground-muted">
+										{[
+											c.deck_summary?.trim() ? 'Summary' : null,
+											(c.course_red_flags?.length ?? 0) > 0
+												? `${c.course_red_flags?.length} flag(s)`
+												: null,
+										]
+											.filter(Boolean)
+											.join(' · ') || '—'}
+									</TableCell>
 									<TableCell>
 										<Button
 											variant="ghost"

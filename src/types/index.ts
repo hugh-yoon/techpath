@@ -7,6 +7,12 @@ export type DayOfWeek =
 
 export type Semester = 'Fall' | 'Spring' | 'Summer'
 
+export interface CourseRedFlag {
+	id: string
+	body: string
+	sort_order: number
+}
+
 export interface Course {
 	id: string
 	department: string
@@ -15,6 +21,9 @@ export interface Course {
 	description: string | null
 	credit_hours: number
 	difficulty_rating: number | null
+	/** Short hook for discovery deck (optional until DB migration). */
+	deck_summary?: string | null
+	course_red_flags?: CourseRedFlag[] | null
 }
 
 export interface Instructor {

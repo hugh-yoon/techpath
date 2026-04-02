@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatDaysShort } from '@/utils/days'
 import { formatTimeDisplay } from '@/utils/time'
+import { CourseDiscoveryInsights } from '@/components/course/course-discovery-insights'
 
 export default function CourseDetailPage() {
 	const params = useParams()
@@ -82,11 +83,16 @@ export default function CourseDetailPage() {
 			<div className="max-w-7xl mx-auto px-6 py-8">
 				<div className="rounded-xl border-2 border-gt-navy/10 bg-gt-diploma p-6 dark:border-gt-gray-matter dark:bg-surface">
 					<div className="flex flex-wrap gap-4 text-sm">
-						<span className="text-gt-navy dark:text-foreground">Credit hours: {course.credit_hours}</span>
+						<span className="text-gt-navy dark:text-foreground">
+							Credit hours: {course.credit_hours}
+						</span>
 						{course.difficulty_rating != null && (
-							<span className="text-gt-navy dark:text-foreground">Difficulty: {course.difficulty_rating}/5</span>
+							<span className="text-gt-navy dark:text-foreground">
+								Difficulty: {course.difficulty_rating}/5
+							</span>
 						)}
 					</div>
+					<CourseDiscoveryInsights course={course} className="mt-4" />
 					{course.description && (
 						<p className="mt-4 text-gt-gray-matter dark:text-foreground-muted">
 							{course.description}

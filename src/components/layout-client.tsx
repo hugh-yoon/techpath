@@ -7,7 +7,7 @@ import { TechPlanChat } from '@/components/techplan-chat'
 const PAGE_TRANSITION = {
 	initial: { opacity: 0, y: 6 },
 	animate: { opacity: 1, y: 0 },
-	transition: { duration: 0.2, ease: 'easeOut' },
+	transition: { duration: 0.2, ease: 'easeOut' as const },
 }
 
 export function LayoutClient({ children }: { children: React.ReactNode }) {

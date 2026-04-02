@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { motion, AnimatePresence, PanInfo } from 'framer-motion'
 import { Course } from '@/types'
 import { DiscoveryCard } from './discovery-card'
 import { ChevronDown, Sparkles } from 'lucide-react'
@@ -12,58 +12,107 @@ interface DiscoveryDeckProps {
 	onViewDetails?: (course: Course) => void
 }
 
+const SWIPE_VELOCITY = 450
+const SWIPE_OFFSET = 72
+
 export function DiscoveryDeck({ courses, onAddCourse, onViewDetails }: DiscoveryDeckProps) {
 	const [index, setIndex] = useState(0)
 	const [direction, setDirection] = useState<'left' | 'right' | null>(null)
+	const deckRef = useRef<HTMLDivElement>(null)
 
 	const currentCourse = courses[index]
-	const progress = ((index + 1) / courses.length) * 100
+	const progress = courses.length > 0 ? ((index + 1) / courses.length) * 100 : 0
 
-	const handleSwipe = (newDirection: 'left' | 'right', shouldAdd?: boolean) => {
-		setDirection(newDirection)
-		setTimeout(() => {
-			// Call onAddCourse if swiping right and shouldAdd is true
-			if (newDirection === 'right' && shouldAdd && onAddCourse) {
-				onAddCourse(currentCourse)
-			}
-			
-			if (index < courses.length - 1) {
-				setIndex(index + 1)
-			} else if (index === courses.length - 1) {
-				// Loop back to start
-				setIndex(0)
-			}
-			setDirection(null)
-		}, 300)
-	}
+	const handleSwipe = useCallback(
+		(newDirection: 'left' | 'right', shouldAdd?: boolean) => {
+			if (!currentCourse || courses.length === 0) return
+			const courseAtSwipe = currentCourse
+			setDirection(newDirection)
+			window.setTimeout(() => {
+				if (newDirection === 'right' && shouldAdd && onAddCourse) {
+					onAddCourse(courseAtSwipe)
+				}
+				setIndex((prev) => {
+					if (prev < courses.length - 1) return prev + 1
+					return 0
+				})
+				setDirection(null)
+			}, 300)
+		},
+		[courses.length, currentCourse, onAddCourse],
+	)
 
-	const handleAction = (action: 'add' | 'skip' | 'details') => {
-		if (action === 'add') {
-			handleSwipe('right', true)
-		} else if (action === 'details' && onViewDetails) {
-			onViewDetails(currentCourse)
-			handleSwipe('right', false)
-		} else if (action === 'skip') {
-			handleSwipe('left', false)
+	const handleAction = useCallback(
+		(action: 'add' | 'skip' | 'details') => {
+			if (action === 'add') {
+				handleSwipe('right', true)
+			} else if (action === 'details' && onViewDetails && currentCourse) {
+				onViewDetails(currentCourse)
+				handleSwipe('right', false)
+			} else if (action === 'skip') {
+				handleSwipe('left', false)
+			}
+		},
+		[handleSwipe, onViewDetails, currentCourse],
+	)
+
+	const handleDragEnd = useCallback(
+		(_event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+			const { velocity, offset } = info
+			if (velocity.x > SWIPE_VELOCITY || offset.x > SWIPE_OFFSET) {
+				handleSwipe('right', true)
+			} else if (velocity.x < -SWIPE_VELOCITY || offset.x < -SWIPE_OFFSET) {
+				handleSwipe('left', false)
+			}
+		},
+		[handleSwipe],
+	)
+
+	useEffect(() => {
+		const el = deckRef.current
+		if (!el) return
+
+		const handleKeyDown = (e: KeyboardEvent) => {
+			if (e.key === 'ArrowRight') {
+				e.preventDefault()
+				handleSwipe('right', true)
+			} else if (e.key === 'ArrowLeft') {
+				e.preventDefault()
+				handleSwipe('left', false)
+			} else if (e.key === 'ArrowDown' && onViewDetails && currentCourse) {
+				e.preventDefault()
+				handleAction('details')
+			}
 		}
+
+		el.addEventListener('keydown', handleKeyDown)
+		return () => el.removeEventListener('keydown', handleKeyDown)
+	}, [handleSwipe, handleAction, onViewDetails, currentCourse])
+
+	if (courses.length === 0) {
+		return null
 	}
 
 	return (
 		<div className="flex h-full flex-col items-center justify-center">
-			{/* Header */}
-			<div className="mb-8 text-center">
-				<div className="flex items-center justify-center gap-2 mb-2">
-					<Sparkles className="h-6 w-6 text-gt-tech-gold" />
-					<h2 className="text-3xl font-bold text-gt-navy">Discovery Deck</h2>
+			<div className="mb-4 text-center">
+				<div className="mb-1 flex items-center justify-center gap-1.5">
+					<Sparkles className="h-5 w-5 text-gt-tech-gold" aria-hidden />
+					<p className="text-base font-semibold text-gt-navy">Browse the deck</p>
 				</div>
-				<p className="text-gt-gray-matter">Swipe through courses to find your next class</p>
+				<p className="text-xs text-gt-gray-matter">
+					Swipe or arrow keys — right adds, left skips, down details
+				</p>
 			</div>
 
-			{/* Progress bar */}
-			<div className="w-full max-w-md mb-6">
-				<div className="flex items-center justify-between mb-2">
-					<span className="text-sm font-semibold text-gt-navy">{index + 1} of {courses.length}</span>
-					<span className="text-sm text-gt-gray-matter">{Math.round(progress)}%</span>
+			<div className="mb-3 w-full max-w-md">
+				<div className="mb-1 flex items-center justify-between">
+					<span className="text-xs font-semibold text-gt-navy">
+						{index + 1} of {courses.length}
+					</span>
+					<span className="text-[10px] font-medium uppercase tracking-wide text-gt-gray-matter">
+						Progress
+					</span>
 				</div>
 				<div className="h-2 w-full rounded-full bg-gt-navy/10">
 					<motion.div
@@ -74,8 +123,13 @@ export function DiscoveryDeck({ courses, onAddCourse, onViewDetails }: Discovery
 				</div>
 			</div>
 
-			{/* Card Stack */}
-			<div className="relative h-96 w-full max-w-md">
+			<div
+				ref={deckRef}
+				tabIndex={0}
+				role="region"
+				aria-label="Course discovery deck. Use left and right arrow keys to skip or add."
+				className="relative h-[min(28rem,72vh)] w-full max-w-md rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-gt-tech-gold focus-visible:ring-offset-2"
+			>
 				<AnimatePresence mode="wait">
 					{currentCourse && (
 						<motion.div
@@ -95,42 +149,34 @@ export function DiscoveryDeck({ courses, onAddCourse, onViewDetails }: Discovery
 							className="absolute inset-0"
 							drag="x"
 							dragElastic={0.2}
-							onDragEnd={(event, info) => {
-								if (info.velocity.x > 500) {
-									handleSwipe("right", true)
-								} else if (info.velocity.x < -500) {
-									handleSwipe("left", false)
-								}
-							}}
+							onDragEnd={handleDragEnd}
 						>
-							<DiscoveryCard
-								course={currentCourse}
-								onAction={handleAction}
-							/>
+							<DiscoveryCard course={currentCourse} onAction={handleAction} />
 						</motion.div>
 					)}
 				</AnimatePresence>
 
-				{/* Subtle hint */}
-				<div className="absolute -bottom-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 text-gt-gray-matter">
-					<ChevronDown className="h-4 w-4 animate-bounce" />
-					<span className="text-xs">Drag to swipe</span>
+				<div className="absolute -bottom-12 left-1/2 flex -translate-x-1/2 flex-col items-center gap-1 text-gt-gray-matter">
+					<ChevronDown className="h-4 w-4 animate-bounce" aria-hidden />
+					<span className="text-xs">Swipe or keyboard</span>
 				</div>
 			</div>
 
-			{/* Completion state */}
 			{index === courses.length - 1 && direction === null && (
 				<motion.div
 					initial={{ opacity: 0, scale: 0.8 }}
 					animate={{ opacity: 1, scale: 1 }}
 					className="mt-16 text-center"
 				>
-					<p className="text-lg font-semibold text-gt-navy mb-4">You've reviewed all courses!</p>
+					<p className="mb-4 text-lg font-semibold text-gt-navy">
+						You&apos;ve reached the end of this pass
+					</p>
 					<button
+						type="button"
 						onClick={() => setIndex(0)}
 						className="rounded-lg bg-gt-tech-gold px-6 py-2 font-semibold text-gt-navy transition-colors hover:bg-gt-tech-medium-gold"
 					>
-						Start Over
+						Start over
 					</button>
 				</motion.div>
 			)}
