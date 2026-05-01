@@ -14,6 +14,7 @@ import { formatDaysShort } from '@/utils/days'
 import { formatTimeDisplay } from '@/utils/time'
 import { cn } from '@/lib/utils'
 import type { Schedule } from '@/types'
+import { useActionToast } from '@/components/ui/action-toast'
 
 function ScheduleSidebarItem({
 	schedule,
@@ -109,6 +110,7 @@ export default function SchedulePage() {
 	const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 	const [contentFaded, setContentFaded] = useState(false)
 	const [contentFadeIn, setContentFadeIn] = useState(false)
+	const { notify } = useActionToast()
 
 	useEffect(() => {
 		if (!contentFaded) return
@@ -146,12 +148,14 @@ export default function SchedulePage() {
 				.eq('id', scheduleSectionId)
 			if (error) {
 				console.error('Failed to remove section:', error)
+				notify('Failed to remove class from schedule', 'error')
 				return
 			}
 			await refetchActiveSchedule()
 			await refetch()
+			notify('Class removed from schedule')
 		},
-		[refetch, refetchActiveSchedule],
+		[notify, refetch, refetchActiveSchedule],
 	)
 
 	const handleDeleteSchedule = useCallback(
@@ -275,39 +279,41 @@ export default function SchedulePage() {
 									</span>
 								</div>
 								<h3 className="mt-4 text-sm font-semibold text-gt-navy dark:text-foreground">Classes</h3>
-								<ul className="mt-2 space-y-2">
-									{activeSchedule.schedule_sections?.map((ss) => (
-										<li
-											key={ss.id}
-											className="rounded-lg border border-gt-pi-mile bg-gt-white p-2 dark:border-gt-gray-matter dark:bg-surface"
-										>
-											<Link
-												href={`/course/${ss.section?.course_id}`}
-												className="text-sm font-medium text-gt-navy hover:underline dark:text-foreground"
+								<div className="mt-2 max-h-72 overflow-y-auto pr-1">
+									<ul className="space-y-2">
+										{activeSchedule.schedule_sections?.map((ss) => (
+											<li
+												key={ss.id}
+												className="rounded-lg border border-gt-pi-mile bg-gt-white p-2 dark:border-gt-gray-matter dark:bg-surface"
 											>
-												{ss.section?.course?.department}{' '}
-												{ss.section?.course?.course_number}{' '}
-												{ss.section?.course?.course_name}
-											</Link>
-											<p className="mt-0.5 text-xs text-gt-gray-matter dark:text-foreground-muted">
-												Section {ss.section?.section_code} ·{' '}
-												{ss.section?.instructor?.name ?? 'TBA'} ·{' '}
-												{ss.section
-													? `${formatDaysShort(ss.section.day_pattern)} ${formatTimeDisplay(ss.section.start_time)}`
-													: ''}
-											</p>
-											<Button
-												variant="ghost"
-												size="sm"
-												className="mt-1 h-7 text-xs text-red-600"
-												onClick={() => handleRemoveSection(ss.id)}
-												aria-label="Remove from schedule"
-											>
-												Remove
-											</Button>
-										</li>
-									))}
-								</ul>
+												<Link
+													href={`/course/${ss.section?.course_id}`}
+													className="text-sm font-medium text-gt-navy hover:underline dark:text-foreground"
+												>
+													{ss.section?.course?.department}{' '}
+													{ss.section?.course?.course_number}{' '}
+													{ss.section?.course?.course_name}
+												</Link>
+												<p className="mt-0.5 text-xs text-gt-gray-matter dark:text-foreground-muted">
+													Section {ss.section?.section_code} ·{' '}
+													{ss.section?.instructor?.name ?? 'TBA'} ·{' '}
+													{ss.section
+														? `${formatDaysShort(ss.section.day_pattern)} ${formatTimeDisplay(ss.section.start_time)}`
+														: ''}
+												</p>
+												<Button
+													variant="ghost"
+													size="sm"
+													className="mt-1 h-7 text-xs text-red-600"
+													onClick={() => handleRemoveSection(ss.id)}
+													aria-label="Remove from schedule"
+												>
+													Remove
+												</Button>
+											</li>
+										))}
+									</ul>
+								</div>
 								{!activeSchedule.schedule_sections?.length && (
 									<p className="mt-2 text-sm text-gt-gray-matter dark:text-foreground-muted">
 										No classes. Add from course pages.

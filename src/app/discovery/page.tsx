@@ -1,17 +1,31 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { DiscoveryDeck } from '@/components/discovery'
 import { SubjectFilter } from '@/components/discovery/subject-filter'
 import { PageHeader } from '@/components/ui/page-header'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useCourses } from '@/hooks'
+import { useCourses, useSchedule, useSchedules } from '@/hooks'
 import { Course } from '@/types'
+import { supabase } from '@/lib/supabaseClient'
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from '@/components/ui/select'
+import { X } from 'lucide-react'
+import { useActionToast } from '@/components/ui/action-toast'
 
 export default function DiscoveryPage() {
 	const { data: coursesFromDb, isLoading: coursesLoading } = useCourses()
-	const [addedCourses, setAddedCourses] = useState<string[]>([])
+	const { data: schedules } = useSchedules()
+	const [selectedScheduleId, setSelectedScheduleId] = useState<string | null>(null)
 	const [selectedSubjects, setSelectedSubjects] = useState<string[]>([])
+	const { data: selectedSchedule, refetch: refetchSelectedSchedule } =
+		useSchedule(selectedScheduleId)
+	const { notify } = useActionToast()
 
 	// Discovery deck accepts optional cost/gradeDistribution; DB courses don't have them
 	const allCourses = (coursesFromDb ?? []) as (Course & {
@@ -30,13 +44,69 @@ export default function DiscoveryPage() {
 		return allCourses.filter((c) => selectedSubjects.includes(c.department))
 	}, [allCourses, selectedSubjects])
 
-	const handleAddCourse = (course: Course) => {
-		setAddedCourses((prev) => [...prev, course.id])
+	useEffect(() => {
+		if (!selectedScheduleId && schedules.length > 0) {
+			setSelectedScheduleId(schedules[0].id)
+		}
+	}, [selectedScheduleId, schedules])
+
+	const handleAddCourse = async (course: Course) => {
+		if (!selectedScheduleId) {
+			notify('Select a schedule before adding classes', 'info')
+			return
+		}
+
+		const { data: section, error: sectionError } = await supabase
+			.from('sections')
+			.select('id, section_code')
+			.eq('course_id', course.id)
+			.order('section_code')
+			.limit(1)
+			.maybeSingle()
+
+		if (sectionError || !section) {
+			notify('No available section found for this course', 'error')
+			return
+		}
+
+		const { error } = await supabase.from('schedule_sections').insert({
+			schedule_id: selectedScheduleId,
+			section_id: section.id,
+		})
+
+		if (error) {
+			if (error.code === '23505') {
+				notify('That class is already in this schedule', 'info')
+				return
+			}
+			notify('Failed to add class to schedule', 'error')
+			return
+		}
+
+		await refetchSelectedSchedule()
+		notify('Class added to schedule')
 	}
 
 	const handleViewDetails = (course: Course) => {
 		window.location.href = `/course/${course.id}`
 	}
+
+	const handleRemoveCourse = async (scheduleSectionId: string) => {
+		const { error } = await supabase
+			.from('schedule_sections')
+			.delete()
+			.eq('id', scheduleSectionId)
+
+		if (error) {
+			notify('Failed to remove class from schedule', 'error')
+			return
+		}
+
+		await refetchSelectedSchedule()
+		notify('Class removed from schedule')
+	}
+
+	const addedSections = selectedSchedule?.schedule_sections ?? []
 
 	return (
 		<div className="min-h-screen bg-gt-white">
@@ -81,24 +151,63 @@ export default function DiscoveryPage() {
 					<div className="space-y-4">
 						<div className="rounded-xl border-2 border-gt-navy/10 bg-gt-diploma p-4">
 							<h3 className="font-bold text-gt-navy mb-4">
-								Added ({addedCourses.length})
+								Added ({addedSections.length})
 							</h3>
-							{addedCourses.length === 0 ? (
+							<div className="mb-3">
+								<Select
+									value={selectedScheduleId ?? ''}
+									onValueChange={(value) =>
+										setSelectedScheduleId(value || null)
+									}
+								>
+									<SelectTrigger aria-label="Select schedule for added classes">
+										<SelectValue placeholder="Select a schedule" />
+									</SelectTrigger>
+									<SelectContent>
+										{schedules.map((schedule) => (
+											<SelectItem key={schedule.id} value={schedule.id}>
+												{schedule.name} - {schedule.semester} {schedule.year}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+							</div>
+							{!selectedScheduleId ? (
 								<p className="text-sm text-gt-gray-matter">
-									Use Add or the right arrow to save courses here
+									Choose a schedule to add classes from the deck
+								</p>
+							) : addedSections.length === 0 ? (
+								<p className="text-sm text-gt-gray-matter">
+									No classes in this schedule yet
 								</p>
 							) : (
 								<div className="space-y-2">
-									{addedCourses.map((courseId) => {
-										const course = courses.find((c) => c.id === courseId)
-										return course ? (
+									{addedSections.map((scheduleSection) => {
+										const course = scheduleSection.section?.course
+										if (!course) return null
+										return (
 											<div
-												key={courseId}
-												className="text-sm rounded-lg bg-gt-tech-gold/20 p-2 text-gt-navy font-medium"
+												key={scheduleSection.id}
+												className="flex items-start justify-between gap-2 rounded-lg bg-gt-tech-gold/20 p-2 text-gt-navy"
 											>
-												{course.department} {course.course_number}
+												<div className="min-w-0">
+													<p className="text-sm font-medium">
+														{course.department} {course.course_number}
+													</p>
+													<p className="truncate text-xs text-gt-gray-matter">
+														{course.course_name}
+													</p>
+												</div>
+												<button
+													type="button"
+													onClick={() => handleRemoveCourse(scheduleSection.id)}
+													className="rounded p-1 text-gt-navy/70 transition-colors hover:bg-gt-white/60 hover:text-red-700"
+													aria-label="Remove class from schedule"
+												>
+													<X className="h-4 w-4" aria-hidden />
+												</button>
 											</div>
-										) : null
+										)
 									})}
 								</div>
 							)}

@@ -24,6 +24,7 @@ import { scheduleSchema, type ScheduleFormValues } from '@/lib/validations'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { SEMESTERS } from '@/utils/constants'
+import { useActionToast } from '@/components/ui/action-toast'
 
 interface AddToScheduleDialogProps {
 	open: boolean
@@ -42,6 +43,7 @@ export function AddToScheduleDialog({
 	const [creating, setCreating] = useState(false)
 	const [selectedScheduleId, setSelectedScheduleId] = useState<string | null>(null)
 	const [submitError, setSubmitError] = useState<string | null>(null)
+	const { notify } = useActionToast()
 
 	const createForm = useForm<ScheduleFormValues>({
 		resolver: zodResolver(scheduleSchema),
@@ -65,8 +67,10 @@ export function AddToScheduleDialog({
 		})
 		if (error) {
 			setSubmitError(error.message)
+			notify('Failed to add class to schedule', 'error')
 			return
 		}
+		notify('Class added to schedule')
 		onSuccess?.()
 		onOpenChange(false)
 	}
@@ -80,6 +84,7 @@ export function AddToScheduleDialog({
 			.single()
 		if (insertError || !newSchedule) {
 			setSubmitError(insertError?.message ?? 'Failed to create schedule')
+			notify('Failed to create schedule', 'error')
 			return
 		}
 		const { error: linkError } = await supabase.from('schedule_sections').insert({
@@ -88,8 +93,10 @@ export function AddToScheduleDialog({
 		})
 		if (linkError) {
 			setSubmitError(linkError.message)
+			notify('Failed to add class to schedule', 'error')
 			return
 		}
+		notify('Class added to schedule')
 		onSuccess?.()
 		onOpenChange(false)
 	})

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence, PanInfo } from 'framer-motion'
 import { Course } from '@/types'
 import { DiscoveryCard } from './discovery-card'
-import { ChevronDown, Sparkles } from 'lucide-react'
+import { ChevronDown, ChevronLeft, Sparkles } from 'lucide-react'
 
 interface DiscoveryDeckProps {
 	courses: (Course & { cost?: string; gradeDistribution?: Record<string, number> })[]
@@ -18,6 +18,7 @@ const SWIPE_OFFSET = 72
 export function DiscoveryDeck({ courses, onAddCourse, onViewDetails }: DiscoveryDeckProps) {
 	const [index, setIndex] = useState(0)
 	const [direction, setDirection] = useState<'left' | 'right' | null>(null)
+	const [history, setHistory] = useState<number[]>([])
 	const deckRef = useRef<HTMLDivElement>(null)
 
 	const currentCourse = courses[index]
@@ -32,6 +33,7 @@ export function DiscoveryDeck({ courses, onAddCourse, onViewDetails }: Discovery
 				if (newDirection === 'right' && shouldAdd && onAddCourse) {
 					onAddCourse(courseAtSwipe)
 				}
+				setHistory((prev) => [...prev, index])
 				setIndex((prev) => {
 					if (prev < courses.length - 1) return prev + 1
 					return 0
@@ -39,7 +41,7 @@ export function DiscoveryDeck({ courses, onAddCourse, onViewDetails }: Discovery
 				setDirection(null)
 			}, 300)
 		},
-		[courses.length, currentCourse, onAddCourse],
+		[courses.length, currentCourse, index, onAddCourse],
 	)
 
 	const handleAction = useCallback(
@@ -93,6 +95,15 @@ export function DiscoveryDeck({ courses, onAddCourse, onViewDetails }: Discovery
 		return null
 	}
 
+	const handleBack = () => {
+		if (history.length === 0 || direction !== null) return
+		const previousIndex = history[history.length - 1]
+		setHistory((prev) => prev.slice(0, -1))
+		setDirection('right')
+		setIndex(previousIndex)
+		window.setTimeout(() => setDirection(null), 200)
+	}
+
 	return (
 		<div className="flex h-full flex-col items-center justify-center">
 			<div className="mb-4 text-center">
@@ -123,42 +134,58 @@ export function DiscoveryDeck({ courses, onAddCourse, onViewDetails }: Discovery
 				</div>
 			</div>
 
-			<div
-				ref={deckRef}
-				tabIndex={0}
-				role="region"
-				aria-label="Course discovery deck. Use left and right arrow keys to skip or add."
-				className="relative h-[min(28rem,72vh)] w-full max-w-md rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-gt-tech-gold focus-visible:ring-offset-2"
-			>
-				<AnimatePresence mode="wait">
-					{currentCourse && (
-						<motion.div
-							key={index}
-							initial={{
-								opacity: 0,
-								x: direction === 'left' ? 100 : -100,
-								rotateZ: direction === 'left' ? 10 : -10,
-							}}
-							animate={{ opacity: 1, x: 0, rotateZ: 0 }}
-							exit={{
-								opacity: 0,
-								x: direction === 'left' ? -100 : 100,
-								rotateZ: direction === 'left' ? -10 : 10,
-							}}
-							transition={{ duration: 0.3, ease: 'easeInOut' }}
-							className="absolute inset-0"
-							drag="x"
-							dragElastic={0.2}
-							onDragEnd={handleDragEnd}
+			<div className="w-full">
+				<div className="grid grid-cols-[2.5rem_minmax(0,1fr)_2.5rem] items-center">
+					<div className="flex justify-center">
+						<button
+							type="button"
+							onClick={handleBack}
+							disabled={history.length === 0 || direction !== null}
+							className="inline-flex h-16 w-7 items-center justify-center rounded-2xl border border-gt-navy/20 bg-gt-white/85 text-gt-navy shadow-sm transition-colors hover:bg-gt-tech-gold/20 disabled:cursor-not-allowed disabled:opacity-40"
+							aria-label="Go to previous course card"
 						>
-							<DiscoveryCard course={currentCourse} onAction={handleAction} />
-						</motion.div>
-					)}
-				</AnimatePresence>
+							<ChevronLeft className="h-4 w-4" aria-hidden />
+						</button>
+					</div>
+					<div
+						ref={deckRef}
+						tabIndex={0}
+						role="region"
+						aria-label="Course discovery deck. Use left and right arrow keys to skip or add."
+						className="relative h-[min(28rem,72vh)] w-full max-w-md rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-gt-tech-gold focus-visible:ring-offset-2"
+					>
+						<AnimatePresence mode="wait">
+							{currentCourse && (
+								<motion.div
+									key={index}
+									initial={{
+										opacity: 0,
+										x: direction === 'left' ? 100 : -100,
+										rotateZ: direction === 'left' ? 10 : -10,
+									}}
+									animate={{ opacity: 1, x: 0, rotateZ: 0 }}
+									exit={{
+										opacity: 0,
+										x: direction === 'left' ? -100 : 100,
+										rotateZ: direction === 'left' ? -10 : 10,
+									}}
+									transition={{ duration: 0.3, ease: 'easeInOut' }}
+									className="absolute inset-0"
+									drag="x"
+									dragElastic={0.2}
+									onDragEnd={handleDragEnd}
+								>
+									<DiscoveryCard course={currentCourse} onAction={handleAction} />
+								</motion.div>
+							)}
+						</AnimatePresence>
 
-				<div className="absolute -bottom-12 left-1/2 flex -translate-x-1/2 flex-col items-center gap-1 text-gt-gray-matter">
-					<ChevronDown className="h-4 w-4 animate-bounce" aria-hidden />
-					<span className="text-xs">Swipe or keyboard</span>
+						<div className="absolute -bottom-12 left-1/2 flex -translate-x-1/2 flex-col items-center gap-1 text-gt-gray-matter">
+							<ChevronDown className="h-4 w-4 animate-bounce" aria-hidden />
+							<span className="text-xs">Swipe or keyboard</span>
+						</div>
+					</div>
+					<div aria-hidden />
 				</div>
 			</div>
 

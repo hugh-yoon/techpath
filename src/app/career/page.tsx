@@ -36,6 +36,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { getPrerequisiteViolations, getEligibleSemesterOrders } from '@/utils/prerequisite-validation'
 import type { CareerWithSchedules, Career } from '@/types'
 import { cn } from '@/lib/utils'
+import { useActionToast } from '@/components/ui/action-toast'
 
 function CareerSidebarItem({
 	career,
@@ -153,7 +154,7 @@ function AddScheduleToCareerButton({
 
 	return (
 		<>
-			<Button size="sm" className="mt-2 bg-gt-tech-gold text-gt-navy hover:opacity-90" onClick={() => setOpen(true)}>
+			<Button size="sm" className="bg-gt-tech-gold text-gt-navy hover:opacity-90" onClick={() => setOpen(true)}>
 				Add schedule to career
 			</Button>
 			<Dialog open={open} onOpenChange={setOpen}>
@@ -355,6 +356,11 @@ export default function CareerPage() {
 		careerSchedules: CareerWithSchedules['career_schedules']
 	} | null>(null)
 	const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+	const [draftCareerSchedules, setDraftCareerSchedules] = useState<
+		CareerWithSchedules['career_schedules']
+	>([])
+	const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+	const { notify } = useActionToast()
 
 	const handleDeleteCareer = useCallback(
 		async (c: Career) => {
@@ -378,8 +384,6 @@ export default function CareerPage() {
 		[activeCareerId, refetchCareers, refetchCareer],
 	)
 
-	const violations = getPrerequisiteViolations(career ?? null, prereqMap)
-
 	const sensors = useSensors(
 		useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
 	)
@@ -389,8 +393,75 @@ export default function CareerPage() {
 		return [...list].sort((a, b) => a.semester_order - b.semester_order)
 	}, [career?.career_schedules])
 
+	useEffect(() => {
+		setDraftCareerSchedules(careerSchedulesSorted)
+		setHasUnsavedChanges(false)
+	}, [careerSchedulesSorted, activeCareerId])
+
+	const draftCareerLike = useMemo(() => {
+		if (!career) return null
+		return {
+			...career,
+			career_schedules: draftCareerSchedules,
+		} as CareerWithSchedules
+	}, [career, draftCareerSchedules])
+
+	const violations = getPrerequisiteViolations(draftCareerLike, prereqMap)
+
+	const moveSectionInDraft = useCallback(
+		(scheduleSectionId: string, targetScheduleId: string) => {
+			setDraftCareerSchedules((prev) => {
+				let sourceScheduleId: string | null = null
+				let movedSection: ScheduleWithSections['schedule_sections'][number] | null = null
+
+				const withoutSection = prev.map((cs) => {
+					const schedule = (cs.schedule as ScheduleWithSections | null) ?? null
+					const sections = schedule?.schedule_sections ?? []
+					const nextSections = sections.filter((ss) => {
+						const isMatch = ss.id === scheduleSectionId
+						if (isMatch) {
+							sourceScheduleId = cs.schedule_id
+							movedSection = ss
+						}
+						return !isMatch
+					})
+					return {
+						...cs,
+						schedule: schedule
+							? {
+									...schedule,
+									schedule_sections: nextSections,
+								}
+							: schedule,
+					}
+				})
+
+				if (!movedSection || !sourceScheduleId || sourceScheduleId === targetScheduleId) {
+					return prev
+				}
+
+				setHasUnsavedChanges(true)
+				return withoutSection.map((cs) => {
+					if (cs.schedule_id !== targetScheduleId) return cs
+					const schedule = (cs.schedule as ScheduleWithSections | null) ?? null
+					const sections = schedule?.schedule_sections ?? []
+					return {
+						...cs,
+						schedule: schedule
+							? {
+									...schedule,
+									schedule_sections: [...sections, movedSection!],
+								}
+							: schedule,
+					}
+				})
+			})
+		},
+		[],
+	)
+
 	const handleDragEnd = useCallback(
-		async (event: DragEndEvent) => {
+		(event: DragEndEvent) => {
 			const { active, over } = event
 			if (!over) return
 			const activeData = active.data.current
@@ -398,32 +469,38 @@ export default function CareerPage() {
 			if (!activeData || !overData) return
 
 			if (activeData.type === 'semester' && overData.type === 'semester') {
-				const fromOrder = activeData.semester_order as number
-				const toOrder = overData.semester_order as number
-				if (fromOrder === toOrder) return
-				const fromCs = careerSchedulesSorted.find((cs) => cs.semester_order === fromOrder)
-				const toCs = careerSchedulesSorted.find((cs) => cs.semester_order === toOrder)
-				if (!fromCs || !toCs) return
-				await supabase
-					.from('career_schedules')
-					.update({ semester_order: toOrder })
-					.eq('id', fromCs.id)
-				await supabase
-					.from('career_schedules')
-					.update({ semester_order: fromOrder })
-					.eq('id', toCs.id)
-				await refetchCareer()
+				const activeId = active.id as string
+				const overId = over.id as string
+				if (activeId === overId) return
+				const oldIndex = draftCareerSchedules.findIndex((cs) => cs.id === activeId)
+				const newIndex = draftCareerSchedules.findIndex((cs) => cs.id === overId)
+				if (oldIndex < 0 || newIndex < 0) return
+				const reordered = arrayMove(draftCareerSchedules, oldIndex, newIndex).map((cs, i) => ({
+					...cs,
+					semester_order: i,
+				}))
+				setDraftCareerSchedules(reordered)
+				setHasUnsavedChanges(true)
 				return
 			}
 
-			if (activeData.type === 'section' && overData.type === 'schedule') {
-				const sectionId = activeData.section_id as string
+			if (activeData.type === 'section') {
 				const scheduleSectionId = activeData.schedule_section_id as string
-				const targetScheduleId = overData.schedule_id as string
+				const targetScheduleId =
+					overData.type === 'schedule'
+						? (overData.schedule_id as string)
+						: overData.type === 'section'
+							? (overData.schedule_id as string)
+							: overData.type === 'semester'
+								? (draftCareerSchedules.find((cs) => cs.id === (over.id as string))
+										?.schedule_id ?? null)
+							: null
+				if (!targetScheduleId) return
+
 				const courseId = activeData.course_id as string
 				const prereqs = prereqMap.get(courseId) ?? []
-				const eligible = getEligibleSemesterOrders(career ?? null, courseId, prereqs)
-				const targetCs = careerSchedulesSorted.find(
+				const eligible = getEligibleSemesterOrders(draftCareerLike, courseId, prereqs)
+				const targetCs = draftCareerSchedules.find(
 					(cs) => cs.schedule_id === targetScheduleId,
 				)
 				const targetOrder = targetCs?.semester_order ?? -1
@@ -433,19 +510,70 @@ export default function CareerPage() {
 						sectionLabel: activeData.sectionLabel as string,
 						targetScheduleId,
 						eligibleOrders: eligible,
-						careerSchedules: career?.career_schedules ?? [],
+						careerSchedules: draftCareerSchedules,
 					})
 					return
 				}
-				await supabase
-					.from('schedule_sections')
-					.update({ schedule_id: targetScheduleId })
-					.eq('id', scheduleSectionId)
-				await refetchCareer()
+				moveSectionInDraft(scheduleSectionId, targetScheduleId)
 			}
 		},
-		[career, careerSchedulesSorted, prereqMap, refetchCareer],
+		[draftCareerLike, draftCareerSchedules, moveSectionInDraft, prereqMap],
 	)
+
+	const handleSaveChanges = useCallback(async () => {
+		if (!career || !hasUnsavedChanges) return
+
+		const originalOrderById = new Map(careerSchedulesSorted.map((cs) => [cs.id, cs.semester_order]))
+		const originalScheduleBySectionId = new Map<string, string>()
+		for (const cs of careerSchedulesSorted) {
+			const schedule = cs.schedule as ScheduleWithSections | null
+			for (const ss of schedule?.schedule_sections ?? []) {
+				originalScheduleBySectionId.set(ss.id, cs.schedule_id)
+			}
+		}
+
+		for (const cs of draftCareerSchedules) {
+			const originalOrder = originalOrderById.get(cs.id)
+			if (originalOrder !== cs.semester_order) {
+				const { error } = await supabase
+					.from('career_schedules')
+					.update({ semester_order: cs.semester_order })
+					.eq('id', cs.id)
+				if (error) {
+					notify('Failed to save semester order', 'error')
+					return
+				}
+			}
+		}
+
+		for (const cs of draftCareerSchedules) {
+			const schedule = cs.schedule as ScheduleWithSections | null
+			for (const ss of schedule?.schedule_sections ?? []) {
+				const originalScheduleId = originalScheduleBySectionId.get(ss.id)
+				if (originalScheduleId && originalScheduleId !== cs.schedule_id) {
+					const { error } = await supabase
+						.from('schedule_sections')
+						.update({ schedule_id: cs.schedule_id })
+						.eq('id', ss.id)
+					if (error) {
+						notify('Failed to save class moves', 'error')
+						return
+					}
+				}
+			}
+		}
+
+		await refetchCareer()
+		setHasUnsavedChanges(false)
+		notify('Career planner changes saved')
+	}, [
+		career,
+		careerSchedulesSorted,
+		draftCareerSchedules,
+		hasUnsavedChanges,
+		notify,
+		refetchCareer,
+	])
 
 	useEffect(() => {
 		if (careers.length > 0 && !activeCareerId) setActiveCareerId(careers[0].id)
@@ -592,15 +720,28 @@ export default function CareerPage() {
 								Open schedule builder
 							</Link>
 						</div>
+						<div className="mt-2 flex items-center justify-between">
+							<AddScheduleToCareerButton
+								careerId={career.id}
+								onAdded={refetchCareer}
+							/>
+							{hasUnsavedChanges ? (
+								<Button
+									size="sm"
+									className="bg-gt-navy text-gt-white hover:opacity-90"
+									onClick={handleSaveChanges}
+								>
+									Save
+								</Button>
+							) : (
+								<div />
+							)}
+						</div>
 						{careerSchedulesSorted.length === 0 && (
 							<p className="mt-4 text-gt-gray-matter dark:text-foreground-muted">
 								Add schedules from your schedule builder to this career.
 							</p>
 						)}
-						<AddScheduleToCareerButton
-							careerId={career.id}
-							onAdded={refetchCareer}
-						/>
 						{violations.size > 0 && (
 							<div
 								className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200"
@@ -620,7 +761,7 @@ export default function CareerPage() {
 								strategy={verticalListSortingStrategy}
 							>
 								<div className="mt-6 space-y-4">
-									{careerSchedulesSorted.map((cs) => {
+									{draftCareerSchedules.map((cs) => {
 										const schedule = cs.schedule as ScheduleWithSections
 										const sections = schedule?.schedule_sections ?? []
 										return (
@@ -664,13 +805,9 @@ export default function CareerPage() {
 				<ConflictModal
 					{...conflictModal}
 					onClose={() => setConflictModal(null)}
-					onMove={async (scheduleId) => {
+					onMove={(scheduleId) => {
 						const { scheduleSectionId: ssId } = conflictModal
-						await supabase
-							.from('schedule_sections')
-							.update({ schedule_id: scheduleId })
-							.eq('id', ssId)
-						await refetchCareer()
+						moveSectionInDraft(ssId, scheduleId)
 						setConflictModal(null)
 					}}
 				/>
