@@ -152,7 +152,7 @@ export function DiscoveryDeck({ courses, onAddCourse, onViewDetails }: Discovery
 						tabIndex={0}
 						role="region"
 						aria-label="Course discovery deck. Use left and right arrow keys to skip or add."
-						className="relative h-[min(28rem,72vh)] w-full max-w-md rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-gt-tech-gold focus-visible:ring-offset-2"
+						className="relative mx-auto h-[min(28rem,72vh)] w-full max-w-md rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-gt-tech-gold focus-visible:ring-offset-2"
 					>
 						<AnimatePresence mode="wait">
 							{currentCourse && (
@@ -185,7 +185,9 @@ export function DiscoveryDeck({ courses, onAddCourse, onViewDetails }: Discovery
 							<span className="text-xs">Swipe or keyboard</span>
 						</div>
 					</div>
-					<div aria-hidden />
+					<div className="flex justify-center" aria-hidden>
+						<div className="h-16 w-7 rounded-2xl" />
+					</div>
 				</div>
 			</div>
 
