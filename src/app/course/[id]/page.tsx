@@ -2,9 +2,8 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
+import { useParams, usePathname, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { BackLink } from '@/components/ui/back-link'
 import { PageHeader } from '@/components/ui/page-header'
 import { useCourse, useCourseReviews } from '@/hooks'
 import { useSectionsByCourse } from '@/hooks/use-sections'
@@ -16,10 +15,19 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { formatDaysShort } from '@/utils/days'
 import { formatTimeDisplay } from '@/utils/time'
 import { CourseDiscoveryInsights } from '@/components/course/course-discovery-insights'
+import {
+	getReturnNavLabel,
+	getReturnPathFromSearchParams,
+	withReturnTo,
+} from '@/lib/return-navigation'
 
 export default function CourseDetailPage() {
 	const params = useParams()
+	const pathname = usePathname()
+	const searchParams = useSearchParams()
 	const id = params?.id as string
+	const parentPath = getReturnPathFromSearchParams(searchParams, '/dashboard')
+	const backLabel = getReturnNavLabel(parentPath)
 	const { data: course, error: courseError, isLoading: courseLoading } = useCourse(id)
 	const { data: sections, isLoading: sectionsLoading } = useSectionsByCourse(id)
 	const { data: courseReviews, isLoading: courseReviewsLoading, refetch: refetchCourseReviews } =
@@ -30,7 +38,13 @@ export default function CourseDetailPage() {
 	if (courseLoading || !id) {
 		return (
 			<div className="min-h-screen bg-gt-white dark:bg-background">
-				<PageHeader title="" subtitle="" homeHref="/" />
+				<PageHeader
+					title=""
+					subtitle=""
+					backHref={parentPath}
+					backLabel={backLabel}
+					homeHref="/"
+				/>
 				<div className="max-w-7xl mx-auto px-6 py-8">
 					<div className="rounded-xl border-2 border-gt-navy/10 bg-gt-diploma p-6 dark:border-gt-gray-matter dark:bg-surface">
 						<div className="flex flex-wrap gap-4">
@@ -74,12 +88,10 @@ export default function CourseDetailPage() {
 			<PageHeader
 				title={`${course.department} ${course.course_number}`}
 				subtitle={course.course_name}
+				backHref={parentPath}
+				backLabel={backLabel}
 				homeHref="/"
-			>
-				<BackLink href="/dashboard" className="text-gt-tech-gold/90 hover:text-gt-tech-gold">
-					Search
-				</BackLink>
-			</PageHeader>
+			/>
 			<div className="max-w-7xl mx-auto px-6 py-8">
 				<div className="rounded-xl border-2 border-gt-navy/10 bg-gt-diploma p-6 dark:border-gt-gray-matter dark:bg-surface">
 					<div className="flex flex-wrap gap-4 text-sm">
@@ -131,12 +143,16 @@ export default function CourseDetailPage() {
 									<div>
 										<span className="font-medium">Section {s.section_code}</span>
 										<span className="mx-2 text-gt-gray-matter">·</span>
-										<Link
-											href={`/instructor/${s.instructor_id}`}
-											className="text-gt-navy underline hover:text-gt-bold-blue dark:text-foreground dark:hover:text-link-hover"
-										>
-											{s.instructor?.name ?? 'TBA'}
-										</Link>
+										{s.instructor_id ? (
+											<Link
+												href={withReturnTo(`/instructor/${s.instructor_id}`, pathname)}
+												className="text-gt-navy underline hover:text-gt-bold-blue dark:text-foreground dark:hover:text-link-hover"
+											>
+												{s.instructor?.name ?? 'TBA'}
+											</Link>
+										) : (
+											<span>{s.instructor?.name ?? 'TBA'}</span>
+										)}
 										<span className="mx-2 text-gt-gray-matter">·</span>
 										<span className="text-gt-gray-matter dark:text-foreground-muted">
 											{formatDaysShort(s.day_pattern)} {formatTimeDisplay(s.start_time)}–

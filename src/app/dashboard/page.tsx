@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { PageHeader } from '@/components/ui/page-header'
 import { useCourseSearch } from '@/hooks/use-courses'
@@ -21,6 +22,7 @@ import { DEPARTMENTS } from '@/utils/constants'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatDaysShort } from '@/utils/days'
 import { formatTimeDisplay } from '@/utils/time'
+import { withReturnTo } from '@/lib/return-navigation'
 
 const RESULT_CARD_MIN_H = 'min-h-[13.5rem]'
 
@@ -52,6 +54,7 @@ function DashboardResultsSkeleton() {
 const PAGE_SIZE = 20
 
 export default function DashboardPage() {
+	const pathname = usePathname()
 	const { filters, setFilters } = useSearchStore()
 	const { data: instructors } = useInstructors()
 	const [page, setPage] = useState(0)
@@ -76,6 +79,7 @@ export default function DashboardPage() {
 			<PageHeader
 				title="Course Search"
 				subtitle="Find courses and sections by department, number, name, or instructor"
+				backHref="/"
 				homeHref="/"
 			/>
 			<div className="max-w-7xl mx-auto px-6 py-8">
@@ -162,7 +166,7 @@ export default function DashboardPage() {
 							transition={{ duration: 0.25, delay: i * 0.03 }}
 						>
 							<Link
-								href={`/course/${course.id}`}
+								href={withReturnTo(`/course/${course.id}`, pathname)}
 								className={`flex w-full flex-col rounded-xl border-2 border-gt-navy/10 bg-gt-white p-4 transition-colors hover:border-gt-tech-gold/40 hover:bg-gt-diploma hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gt-tech-gold focus-visible:ring-offset-2 dark:border-gt-gray-matter dark:bg-surface dark:hover:bg-gt-gray-matter/50 ${RESULT_CARD_MIN_H}`}
 							>
 								<h2 className="shrink-0 font-semibold text-gt-navy dark:text-foreground">

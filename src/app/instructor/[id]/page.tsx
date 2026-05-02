@@ -2,9 +2,8 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
+import { useParams, usePathname, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { BackLink } from '@/components/ui/back-link'
 import { PageHeader } from '@/components/ui/page-header'
 import { useInstructor, useInstructorReviews, useCreateInstructorReview } from '@/hooks'
 import { useSectionsByInstructor } from '@/hooks/use-sections'
@@ -15,10 +14,19 @@ import { Textarea } from '@/components/ui/textarea'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatDaysShort } from '@/utils/days'
 import { formatTimeDisplay } from '@/utils/time'
+import {
+	getReturnNavLabel,
+	getReturnPathFromSearchParams,
+	withReturnTo,
+} from '@/lib/return-navigation'
 
 export default function InstructorDetailPage() {
 	const params = useParams()
+	const pathname = usePathname()
+	const searchParams = useSearchParams()
 	const id = params?.id as string
+	const parentPath = getReturnPathFromSearchParams(searchParams, '/dashboard')
+	const backLabel = getReturnNavLabel(parentPath)
 	const { data: instructor, error: instructorError, isLoading: instructorLoading } = useInstructor(id)
 	const { data: sections, isLoading: sectionsLoading } = useSectionsByInstructor(id)
 	const [showReviews, setShowReviews] = useState(false)
@@ -37,7 +45,13 @@ export default function InstructorDetailPage() {
 	if (instructorLoading || !id) {
 		return (
 			<div className="min-h-screen bg-gt-white dark:bg-background">
-				<PageHeader title="" subtitle="" homeHref="/" />
+				<PageHeader
+					title=""
+					subtitle=""
+					backHref={parentPath}
+					backLabel={backLabel}
+					homeHref="/"
+				/>
 				<div className="max-w-7xl mx-auto px-6 py-8">
 					<div className="rounded-xl border-2 border-gt-navy/10 bg-gt-diploma p-4 dark:border-gt-gray-matter dark:bg-surface">
 						<Skeleton className="h-4 w-full max-w-md" />
@@ -76,12 +90,10 @@ export default function InstructorDetailPage() {
 			<PageHeader
 				title={instructor.name}
 				subtitle={`Department: ${instructor.department}${instructor.rating != null ? ` · Rating: ${instructor.rating}/5` : ''}`}
+				backHref={parentPath}
+				backLabel={backLabel}
 				homeHref="/"
-			>
-				<BackLink href="/dashboard" className="text-gt-tech-gold/90 hover:text-gt-tech-gold">
-					Search
-				</BackLink>
-			</PageHeader>
+			/>
 			<div className="max-w-7xl mx-auto px-6 py-8">
 				{instructor.teaching_style && (
 					<div className="rounded-xl border-2 border-gt-navy/10 bg-gt-diploma p-4 dark:border-gt-gray-matter dark:bg-surface">
@@ -118,7 +130,7 @@ export default function InstructorDetailPage() {
 								className="rounded-xl border-2 border-gt-navy/10 bg-gt-white p-3 dark:border-gt-gray-matter dark:bg-surface"
 							>
 								<Link
-									href={`/course/${s.course_id}`}
+									href={withReturnTo(`/course/${s.course_id}`, pathname)}
 									className="font-medium text-gt-navy underline hover:text-gt-bold-blue dark:text-foreground dark:hover:text-link-hover"
 								>
 									{s.course?.department} {s.course?.course_number}{' '}

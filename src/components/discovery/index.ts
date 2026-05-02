@@ -1,2 +1,2 @@
 export { DiscoveryCard } from './discovery-card'
-export { DiscoveryDeck } from './discovery-deck'
+export { DiscoveryDeck, type DiscoveryDeckHandle } from './discovery-deck'

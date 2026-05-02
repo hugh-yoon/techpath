@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import {
 	DndContext,
 	DragEndEvent,
@@ -36,6 +37,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { getPrerequisiteViolations, getEligibleSemesterOrders } from '@/utils/prerequisite-validation'
 import type { CareerWithSchedules, Career } from '@/types'
 import { cn } from '@/lib/utils'
+import { withReturnTo } from '@/lib/return-navigation'
 import { useActionToast } from '@/components/ui/action-toast'
 
 function CareerSidebarItem({
@@ -341,7 +343,10 @@ interface ScheduleWithSections {
 	}>
 }
 
+type ScheduleSectionRow = NonNullable<ScheduleWithSections['schedule_sections']>[number]
+
 export default function CareerPage() {
+	const pathname = usePathname()
 	const { data: careers, isLoading: careersLoading, refetch: refetchCareers } = useCareers()
 	const activeCareerId = useCareerStore((s) => s.activeCareerId)
 	const setActiveCareerId = useCareerStore((s) => s.setActiveCareerId)
@@ -411,8 +416,9 @@ export default function CareerPage() {
 	const moveSectionInDraft = useCallback(
 		(scheduleSectionId: string, targetScheduleId: string) => {
 			setDraftCareerSchedules((prev) => {
+				if (!prev?.length) return prev ?? []
 				let sourceScheduleId: string | null = null
-				let movedSection: ScheduleWithSections['schedule_sections'][number] | null = null
+				let movedSection: ScheduleSectionRow | null = null
 
 				const withoutSection = prev.map((cs) => {
 					const schedule = (cs.schedule as ScheduleWithSections | null) ?? null
@@ -454,7 +460,7 @@ export default function CareerPage() {
 								}
 							: schedule,
 					}
-				})
+				}) as CareerWithSchedules['career_schedules']
 			})
 		},
 		[],
@@ -468,14 +474,16 @@ export default function CareerPage() {
 			const overData = over.data.current
 			if (!activeData || !overData) return
 
+			const draftList = draftCareerSchedules ?? []
+
 			if (activeData.type === 'semester' && overData.type === 'semester') {
 				const activeId = active.id as string
 				const overId = over.id as string
 				if (activeId === overId) return
-				const oldIndex = draftCareerSchedules.findIndex((cs) => cs.id === activeId)
-				const newIndex = draftCareerSchedules.findIndex((cs) => cs.id === overId)
+				const oldIndex = draftList.findIndex((cs) => cs.id === activeId)
+				const newIndex = draftList.findIndex((cs) => cs.id === overId)
 				if (oldIndex < 0 || newIndex < 0) return
-				const reordered = arrayMove(draftCareerSchedules, oldIndex, newIndex).map((cs, i) => ({
+				const reordered = arrayMove(draftList, oldIndex, newIndex).map((cs, i) => ({
 					...cs,
 					semester_order: i,
 				}))
@@ -492,7 +500,7 @@ export default function CareerPage() {
 						: overData.type === 'section'
 							? (overData.schedule_id as string)
 							: overData.type === 'semester'
-								? (draftCareerSchedules.find((cs) => cs.id === (over.id as string))
+								? (draftList.find((cs) => cs.id === (over.id as string))
 										?.schedule_id ?? null)
 							: null
 				if (!targetScheduleId) return
@@ -500,7 +508,7 @@ export default function CareerPage() {
 				const courseId = activeData.course_id as string
 				const prereqs = prereqMap.get(courseId) ?? []
 				const eligible = getEligibleSemesterOrders(draftCareerLike, courseId, prereqs)
-				const targetCs = draftCareerSchedules.find(
+				const targetCs = draftList.find(
 					(cs) => cs.schedule_id === targetScheduleId,
 				)
 				const targetOrder = targetCs?.semester_order ?? -1
@@ -510,7 +518,7 @@ export default function CareerPage() {
 						sectionLabel: activeData.sectionLabel as string,
 						targetScheduleId,
 						eligibleOrders: eligible,
-						careerSchedules: draftCareerSchedules,
+						careerSchedules: draftList,
 					})
 					return
 				}
@@ -523,6 +531,8 @@ export default function CareerPage() {
 	const handleSaveChanges = useCallback(async () => {
 		if (!career || !hasUnsavedChanges) return
 
+		const draftList = draftCareerSchedules ?? []
+
 		const originalOrderById = new Map(careerSchedulesSorted.map((cs) => [cs.id, cs.semester_order]))
 		const originalScheduleBySectionId = new Map<string, string>()
 		for (const cs of careerSchedulesSorted) {
@@ -532,7 +542,7 @@ export default function CareerPage() {
 			}
 		}
 
-		for (const cs of draftCareerSchedules) {
+		for (const cs of draftList) {
 			const originalOrder = originalOrderById.get(cs.id)
 			if (originalOrder !== cs.semester_order) {
 				const { error } = await supabase
@@ -546,7 +556,7 @@ export default function CareerPage() {
 			}
 		}
 
-		for (const cs of draftCareerSchedules) {
+		for (const cs of draftList) {
 			const schedule = cs.schedule as ScheduleWithSections | null
 			for (const ss of schedule?.schedule_sections ?? []) {
 				const originalScheduleId = originalScheduleBySectionId.get(ss.id)
@@ -761,7 +771,7 @@ export default function CareerPage() {
 								strategy={verticalListSortingStrategy}
 							>
 								<div className="mt-6 space-y-4">
-									{draftCareerSchedules.map((cs) => {
+									{(draftCareerSchedules ?? []).map((cs) => {
 										const schedule = cs.schedule as ScheduleWithSections
 										const sections = schedule?.schedule_sections ?? []
 										return (
@@ -788,6 +798,7 @@ export default function CareerPage() {
 															label={label}
 															isViolation={isViolation}
 															scheduleId={cs.schedule_id}
+															fromPath={pathname}
 														/>
 													)
 												})}
@@ -824,6 +835,7 @@ function DraggableSection({
 	label,
 	isViolation,
 	scheduleId,
+	fromPath,
 }: {
 	scheduleSectionId: string
 	sectionId: string
@@ -831,6 +843,7 @@ function DraggableSection({
 	label: string
 	isViolation: boolean
 	scheduleId: string
+	fromPath: string
 }) {
 	const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
 		id: `section-${scheduleSectionId}`,
@@ -865,7 +878,7 @@ function DraggableSection({
 				⋮⋮
 			</span>
 			<Link
-				href={`/course/${courseId}`}
+				href={withReturnTo(`/course/${courseId}`, fromPath)}
 				className="flex-1 truncate hover:underline"
 				target="_blank"
 				rel="noopener noreferrer"

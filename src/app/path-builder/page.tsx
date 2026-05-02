@@ -89,6 +89,7 @@ export default function PathBuilderPage() {
 			<PageHeader
 				title="Path Builder"
 				subtitle="Review your previous semesters and plan your next courses"
+				backHref="/"
 				homeHref="/"
 			/>
 

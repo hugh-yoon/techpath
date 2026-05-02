@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { useSchedules, useSchedule } from '@/hooks'
 import { useScheduleStore } from '@/stores/schedule-store'
 import { supabase } from '@/lib/supabaseClient'
@@ -15,6 +16,7 @@ import { formatTimeDisplay } from '@/utils/time'
 import { cn } from '@/lib/utils'
 import type { Schedule } from '@/types'
 import { useActionToast } from '@/components/ui/action-toast'
+import { withReturnTo } from '@/lib/return-navigation'
 
 function ScheduleSidebarItem({
 	schedule,
@@ -101,6 +103,7 @@ function ScheduleSidebarItem({
 }
 
 export default function SchedulePage() {
+	const pathname = usePathname()
 	const { data: schedules, isLoading: schedulesLoading, refetch } = useSchedules()
 	const activeScheduleId = useScheduleStore((s) => s.activeScheduleId)
 	const setActiveScheduleId = useScheduleStore((s) => s.setActiveScheduleId)
@@ -287,7 +290,10 @@ export default function SchedulePage() {
 												className="rounded-lg border border-gt-pi-mile bg-gt-white p-2 dark:border-gt-gray-matter dark:bg-surface"
 											>
 												<Link
-													href={`/course/${ss.section?.course_id}`}
+													href={withReturnTo(
+														`/course/${ss.section?.course_id}`,
+														pathname,
+													)}
 													className="text-sm font-medium text-gt-navy hover:underline dark:text-foreground"
 												>
 													{ss.section?.course?.department}{' '}

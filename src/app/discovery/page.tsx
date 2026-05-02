@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { DiscoveryDeck } from '@/components/discovery'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
+import { DiscoveryDeck, type DiscoveryDeckHandle } from '@/components/discovery'
 import { SubjectFilter } from '@/components/discovery/subject-filter'
 import { PageHeader } from '@/components/ui/page-header'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -17,8 +18,19 @@ import {
 } from '@/components/ui/select'
 import { X } from 'lucide-react'
 import { useActionToast } from '@/components/ui/action-toast'
+import { withReturnTo } from '@/lib/return-navigation'
+import {
+	Dialog,
+	DialogContent,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 
 export default function DiscoveryPage() {
+	const router = useRouter()
+	const pathname = usePathname()
 	const { data: coursesFromDb, isLoading: coursesLoading } = useCourses()
 	const { data: schedules } = useSchedules()
 	const [selectedScheduleId, setSelectedScheduleId] = useState<string | null>(null)
@@ -26,6 +38,9 @@ export default function DiscoveryPage() {
 	const { data: selectedSchedule, refetch: refetchSelectedSchedule } =
 		useSchedule(selectedScheduleId)
 	const { notify } = useActionToast()
+	const deckRef = useRef<DiscoveryDeckHandle>(null)
+	const [addConfirmOpen, setAddConfirmOpen] = useState(false)
+	const [pendingAddCourse, setPendingAddCourse] = useState<Course | null>(null)
 
 	// Discovery deck accepts optional cost/gradeDistribution; DB courses don't have them
 	const allCourses = (coursesFromDb ?? []) as (Course & {
@@ -50,10 +65,10 @@ export default function DiscoveryPage() {
 		}
 	}, [selectedScheduleId, schedules])
 
-	const handleAddCourse = async (course: Course) => {
+	const persistAddCourse = async (course: Course): Promise<boolean> => {
 		if (!selectedScheduleId) {
 			notify('Select a schedule before adding classes', 'info')
-			return
+			return false
 		}
 
 		const { data: section, error: sectionError } = await supabase
@@ -66,7 +81,7 @@ export default function DiscoveryPage() {
 
 		if (sectionError || !section) {
 			notify('No available section found for this course', 'error')
-			return
+			return false
 		}
 
 		const { error } = await supabase.from('schedule_sections').insert({
@@ -77,18 +92,41 @@ export default function DiscoveryPage() {
 		if (error) {
 			if (error.code === '23505') {
 				notify('That class is already in this schedule', 'info')
-				return
+				return false
 			}
 			notify('Failed to add class to schedule', 'error')
-			return
+			return false
 		}
 
 		await refetchSelectedSchedule()
 		notify('Class added to schedule')
+		return true
+	}
+
+	const handleAddCourseFromSwipe = (course: Course) => {
+		void persistAddCourse(course)
+	}
+
+	const handleAddButtonRequest = (course: Course) => {
+		setPendingAddCourse(course)
+		setAddConfirmOpen(true)
+	}
+
+	const handleCancelAddConfirm = () => {
+		setAddConfirmOpen(false)
+		setPendingAddCourse(null)
+	}
+
+	const handleConfirmAddClass = async () => {
+		if (!pendingAddCourse) return
+		const ok = await persistAddCourse(pendingAddCourse)
+		if (!ok) return
+		deckRef.current?.advanceAfterAdd()
+		handleCancelAddConfirm()
 	}
 
 	const handleViewDetails = (course: Course) => {
-		window.location.href = `/course/${course.id}`
+		router.push(withReturnTo(`/course/${course.id}`, pathname))
 	}
 
 	const handleRemoveCourse = async (scheduleSectionId: string) => {
@@ -108,11 +146,19 @@ export default function DiscoveryPage() {
 
 	const addedSections = selectedSchedule?.schedule_sections ?? []
 
+	const selectedScheduleLabel = useMemo(() => {
+		if (!selectedScheduleId) return null
+		const s = schedules.find((row) => row.id === selectedScheduleId)
+		if (!s) return null
+		return `${s.name} – ${s.semester} ${s.year}`
+	}, [selectedScheduleId, schedules])
+
 	return (
 		<div className="min-h-screen bg-gt-white">
 			<PageHeader
 				title="Discovery Deck"
 				subtitle="Discover new courses and find classes that match your interests"
+				backHref="/"
 				homeHref="/"
 			/>
 
@@ -135,8 +181,10 @@ export default function DiscoveryPage() {
 								</div>
 							) : courses.length > 0 ? (
 								<DiscoveryDeck
+									ref={deckRef}
 									courses={courses}
-									onAddCourse={handleAddCourse}
+									onAddCourse={handleAddCourseFromSwipe}
+									onAddButtonRequest={handleAddButtonRequest}
 									onViewDetails={handleViewDetails}
 								/>
 							) : (
@@ -232,6 +280,52 @@ export default function DiscoveryPage() {
 					</div>
 				</div>
 			</div>
+
+			<Dialog
+				open={addConfirmOpen}
+				onOpenChange={(open) => {
+					if (!open) handleCancelAddConfirm()
+				}}
+			>
+				<DialogContent className="sm:max-w-md" aria-describedby={undefined}>
+					<DialogHeader>
+						<DialogTitle>Add class to schedule?</DialogTitle>
+					</DialogHeader>
+					{pendingAddCourse && (
+						<div className="space-y-2 text-sm text-gt-navy">
+							<p>
+								Add{' '}
+								<strong>
+									{pendingAddCourse.department} {pendingAddCourse.course_number}
+								</strong>
+								{' — '}
+								{pendingAddCourse.course_name}
+								{selectedScheduleLabel ? (
+									<>
+										{' '}
+										to <strong>{selectedScheduleLabel}</strong>?
+									</>
+								) : (
+									' to your schedule?'
+								)}
+							</p>
+							{!selectedScheduleId && (
+								<p className="text-amber-800 dark:text-amber-200" role="alert">
+									Select a schedule in the sidebar before adding.
+								</p>
+							)}
+						</div>
+					)}
+					<DialogFooter className="gap-2 sm:gap-0">
+						<Button type="button" variant="outline" onClick={handleCancelAddConfirm}>
+							Cancel
+						</Button>
+						<Button type="button" onClick={handleConfirmAddClass}>
+							Add Class
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 		</div>
 	)
 }

@@ -1,9 +1,11 @@
 'use client'
 
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { CALENDAR_TOTAL_ROWS } from '@/utils/constants'
 import { getBlockRowSpan, timeToRowIndex, formatTimeDisplay } from '@/utils/time'
 import { cn } from '@/lib/utils'
+import { withReturnTo } from '@/lib/return-navigation'
 import type { SectionWithRelations } from '@/types'
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'] as const
@@ -15,6 +17,7 @@ interface CalendarGridProps {
 }
 
 export function CalendarGrid({ sections }: CalendarGridProps) {
+	const pathname = usePathname()
 	const timeLabels = Array.from({ length: CALENDAR_TOTAL_ROWS }, (_, i) => {
 		const hour = 7 + Math.floor(i / 4)
 		const min = (i % 4) * 15
@@ -102,7 +105,7 @@ export function CalendarGrid({ sections }: CalendarGridProps) {
 						{blocksByDay[dayIndex].map(({ section, startRow, span }) => (
 							<Link
 								key={section.id}
-								href={`/course/${section.course_id}`}
+								href={withReturnTo(`/course/${section.course_id}`, pathname)}
 								target="_blank"
 								rel="noopener noreferrer"
 								className="absolute left-1 right-1 flex flex-col justify-center rounded bg-gt-tech-gold/20 py-1.5 px-2 text-xs font-medium text-gt-navy hover:bg-gt-tech-gold/35 dark:bg-gt-tech-gold/25 dark:text-gt-navy dark:hover:bg-gt-tech-gold/40"

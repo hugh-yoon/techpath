@@ -1,21 +1,36 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import {
+	useState,
+	useEffect,
+	useCallback,
+	useRef,
+	forwardRef,
+	useImperativeHandle,
+} from 'react'
 import { motion, AnimatePresence, PanInfo } from 'framer-motion'
 import { Course } from '@/types'
 import { DiscoveryCard } from './discovery-card'
 import { ChevronDown, ChevronLeft, Sparkles } from 'lucide-react'
 
+export interface DiscoveryDeckHandle {
+	/** Same as swiping right without adding — advances to the next card. */
+	advanceAfterAdd: () => void
+}
+
 interface DiscoveryDeckProps {
 	courses: (Course & { cost?: string; gradeDistribution?: Record<string, number> })[]
 	onAddCourse?: (course: Course) => void
+	/** If set, the Add button opens confirmation in the parent instead of adding immediately. */
+	onAddButtonRequest?: (course: Course) => void
 	onViewDetails?: (course: Course) => void
 }
 
 const SWIPE_VELOCITY = 450
 const SWIPE_OFFSET = 72
 
-export function DiscoveryDeck({ courses, onAddCourse, onViewDetails }: DiscoveryDeckProps) {
+export const DiscoveryDeck = forwardRef<DiscoveryDeckHandle, DiscoveryDeckProps>(
+	function DiscoveryDeck({ courses, onAddCourse, onAddButtonRequest, onViewDetails }, ref) {
 	const [index, setIndex] = useState(0)
 	const [direction, setDirection] = useState<'left' | 'right' | null>(null)
 	const [history, setHistory] = useState<number[]>([])
@@ -44,9 +59,23 @@ export function DiscoveryDeck({ courses, onAddCourse, onViewDetails }: Discovery
 		[courses.length, currentCourse, index, onAddCourse],
 	)
 
+	useImperativeHandle(
+		ref,
+		() => ({
+			advanceAfterAdd: () => {
+				handleSwipe('right', false)
+			},
+		}),
+		[handleSwipe],
+	)
+
 	const handleAction = useCallback(
 		(action: 'add' | 'skip' | 'details') => {
 			if (action === 'add') {
+				if (onAddButtonRequest && currentCourse) {
+					onAddButtonRequest(currentCourse)
+					return
+				}
 				handleSwipe('right', true)
 			} else if (action === 'details' && onViewDetails && currentCourse) {
 				onViewDetails(currentCourse)
@@ -55,7 +84,7 @@ export function DiscoveryDeck({ courses, onAddCourse, onViewDetails }: Discovery
 				handleSwipe('left', false)
 			}
 		},
-		[handleSwipe, onViewDetails, currentCourse],
+		[handleSwipe, onViewDetails, currentCourse, onAddButtonRequest],
 	)
 
 	const handleDragEnd = useCallback(
@@ -211,4 +240,6 @@ export function DiscoveryDeck({ courses, onAddCourse, onViewDetails }: Discovery
 			)}
 		</div>
 	)
-}
+})
+
+DiscoveryDeck.displayName = 'DiscoveryDeck'
