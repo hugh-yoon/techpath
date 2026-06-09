@@ -8,8 +8,9 @@ change slowly; professor ratings and reviews change frequently.
 
 | Cadence | Job | Edge Function | Source | What gets updated |
 |---------|-----|---------------|--------|-------------------|
-| **Monthly** (1st, 03:00 UTC) | `banner-sync-monthly` | `banner-sync` | [GT Banner class search](https://registration.banner.gatech.edu/StudentRegistrationSsb/ssb/classSearch/classSearch) | **Course & section info** — titles, subjects, course numbers, section codes, credit hours, CRNs, term/year, instructors (names), meeting times, campus, locations, schedule types (lecture/lab), linked sections |
-| **Daily** (04:00 UTC) | `rmp-sync-daily` | `rmp-sync` | [Rate My Professors — GT (school 361)](https://www.ratemyprofessors.com/search/professors/361?q=*) | **Teacher info** — quality ratings, difficulty, “would take again” %, rating counts, individual review comments; matched to instructors discovered via Banner |
+| **Daily** (03:00 UTC) | `banner-sync-daily` | `banner-sync` | GT Banner | **Batch continuation** — 3 subjects per term per run until current + next term are complete |
+| **Monthly** (1st, 02:00 UTC) | `banner-sync-monthly-reset` | `banner-sync` | GT Banner | **Full reset** — clears subject offsets and restarts the batched pull |
+| **Daily** (04:00 UTC) | `rmp-sync-daily` | `rmp-sync` | Rate My Professors | **Teacher info** — quality ratings, difficulty, reviews |
 
 ### Why different cadences?
 
@@ -62,15 +63,21 @@ RMP (daily)       →  instructor ratings, reviews, difficulty
    **Already injected by Supabase** (no action needed):
    `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`, etc.
    See [Edge Function secrets docs](https://supabase.com/docs/guides/functions/secrets).
-5. Enable cron jobs — uncomment SQL in
-   `supabase/migrations/20250609130000_ingestion_cron.sql` after
-   storing `project_url` and `cron_secret` in Vault.
+5. Enable cron jobs — apply `supabase/migrations/20250609180000_enable_ingestion_cron.sql`
+   after storing `project_url` and `cron_secret` in Vault:
+
+   ```bash
+   supabase db query -f /tmp/vault-secrets.sql --linked
+   supabase db query -f supabase/migrations/20250609180000_enable_ingestion_cron.sql --linked
+   ```
 
 ## Manual trigger
 
 ```bash
 curl -X POST \
   -H "Authorization: Bearer $CRON_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{"reset": true}' \
   https://<project-ref>.supabase.co/functions/v1/banner-sync
 
 curl -X POST \
@@ -96,6 +103,5 @@ GraphQL `POST https://www.ratemyprofessors.com/graphql` with
 
 ## Remaining steps
 
-1. Surface RMP-sourced reviews in instructor UI with attribution.
-2. Admin view for `sync_jobs` run history.
-3. Enable `pg_cron` schedules after deploy verification.
+1. Admin view for `sync_jobs` run history.
+2. Term-aware section filtering in student search (active Banner terms only).

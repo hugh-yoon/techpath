@@ -9,156 +9,292 @@ import { normalizeInstructorName } from './normalize.ts'
 import type { BannerSectionRow } from './types.ts'
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2'
 
+const SUBJECTS_PER_BATCH = 3
+
+export interface BannerSyncOptions {
+	/** Reset subject offsets and re-pull all terms (monthly). */
+	reset?: boolean
+}
+
 export interface BannerSyncResult {
 	termsSynced: number
 	sectionsUpserted: number
 	sectionsLinked: number
 	sectionsDeactivated: number
+	subjectsProcessed: number
+	termsCompleted: number
 	failures: number
 }
 
 export async function runBannerSync(
 	supabase: SupabaseClient,
+	options: BannerSyncOptions = {},
 ): Promise<BannerSyncResult> {
 	const result: BannerSyncResult = {
 		termsSynced: 0,
 		sectionsUpserted: 0,
 		sectionsLinked: 0,
 		sectionsDeactivated: 0,
+		subjectsProcessed: 0,
+		termsCompleted: 0,
 		failures: 0,
 	}
 
 	const allTerms = await fetchBannerTerms()
 	const terms = selectTermsToSync(allTerms, 2)
-	const session = new BannerSession()
 
-	for (const term of terms) {
-		const { data: termRow, error: termError } = await supabase
-			.from('terms')
-			.upsert(
-				{
-					semester: term.semester,
-					year: term.year,
-					banner_term_code: term.bannerTermCode,
-					synced_at: new Date().toISOString(),
-				},
-				{ onConflict: 'banner_term_code' },
-			)
-			.select('id')
-			.single()
-		if (termError) {
-			result.failures++
-			continue
-		}
-		result.termsSynced++
-
-		const termId = termRow.id as string
-		await session.initTerm(term.bannerTermCode)
-
-		const subjects = await fetchBannerSubjects(session, term.bannerTermCode)
-		const seenCrns = new Set<string>()
-		const linkGroups = new Map<
-			string,
-			Array<{ crn: string; scheduleType: string | null }>
-		>()
-
-		for (const subject of subjects) {
-			let sections: BannerSectionRow[] = []
-			try {
-				sections = await fetchBannerSectionsForSubject(
-					session,
-					term.bannerTermCode,
-					subject,
-				)
-			} catch {
-				result.failures++
-				continue
-			}
-
-			for (const section of sections) {
-				try {
-					await upsertBannerSection(supabase, termId, section)
-					seenCrns.add(section.crn)
-					result.sectionsUpserted++
-					if (section.linkedBannerSectionId) {
-						const group = linkGroups.get(section.linkedBannerSectionId)
-							?? []
-						group.push({
-							crn: section.crn,
-							scheduleType: section.scheduleType,
-						})
-						linkGroups.set(section.linkedBannerSectionId, group)
-					}
-				} catch {
-					result.failures++
-				}
-			}
-		}
-
-		for (const [, members] of linkGroups) {
-			if (members.length < 2) continue
-			try {
-				const linked = await linkSectionGroup(supabase, termId, members)
-				result.sectionsLinked += linked
-			} catch {
-				result.failures++
-			}
-		}
-
-		const { data: stale } = await supabase
-			.from('sections')
-			.select('id, crn')
-			.eq('term_id', termId)
-			.eq('is_active', true)
-		for (const row of stale ?? []) {
-			if (!seenCrns.has(row.crn as string)) {
-				await supabase
-					.from('sections')
-					.update({ is_active: false })
-					.eq('id', row.id)
-				result.sectionsDeactivated++
-			}
+	if (options.reset) {
+		for (const term of terms) {
+			await resetTermProgress(supabase, term)
 		}
 	}
+
+	const termToSync = await pickIncompleteTerm(supabase, terms)
+	if (!termToSync) {
+		result.termsCompleted = terms.length
+		return result
+	}
+
+	const termResult = await syncTermBatch(supabase, termToSync, false)
+	result.termsSynced = 1
+	result.sectionsUpserted += termResult.sectionsUpserted
+	result.sectionsLinked += termResult.sectionsLinked
+	result.sectionsDeactivated += termResult.sectionsDeactivated
+	result.subjectsProcessed += termResult.subjectsProcessed
+	result.failures += termResult.failures
+	result.termsCompleted = await countCompletedTerms(supabase, terms)
 
 	return result
 }
 
-async function linkSectionGroup(
+async function resetTermProgress(
+	supabase: SupabaseClient,
+	term: { bannerTermCode: string; semester: string; year: number },
+) {
+	const syncStartedAt = new Date().toISOString()
+	await supabase.from('terms').upsert(
+		{
+			semester: term.semester,
+			year: term.year,
+			banner_term_code: term.bannerTermCode,
+			banner_subject_offset: 0,
+			banner_sync_started_at: syncStartedAt,
+			synced_at: syncStartedAt,
+		},
+		{ onConflict: 'banner_term_code' },
+	)
+}
+
+async function pickIncompleteTerm(
+	supabase: SupabaseClient,
+	terms: Array<{ bannerTermCode: string; semester: string; year: number }>,
+) {
+	for (const term of terms) {
+		const { data: row } = await supabase
+			.from('terms')
+			.select('banner_subject_offset, banner_subjects_total')
+			.eq('banner_term_code', term.bannerTermCode)
+			.maybeSingle()
+
+		const offset = (row?.banner_subject_offset as number) ?? 0
+		const total = row?.banner_subjects_total as number | null
+		if (total == null || offset < total) return term
+	}
+	return null
+}
+
+async function countCompletedTerms(
+	supabase: SupabaseClient,
+	terms: Array<{ bannerTermCode: string }>,
+): Promise<number> {
+	let count = 0
+	for (const term of terms) {
+		const { data: row } = await supabase
+			.from('terms')
+			.select('banner_subject_offset, banner_subjects_total')
+			.eq('banner_term_code', term.bannerTermCode)
+			.maybeSingle()
+		const offset = (row?.banner_subject_offset as number) ?? 0
+		const total = row?.banner_subjects_total as number | null
+		if (total != null && offset >= total) count++
+	}
+	return count
+}
+
+async function syncTermBatch(
+	supabase: SupabaseClient,
+	term: { bannerTermCode: string; semester: string; year: number },
+	_reset: boolean,
+) {
+	const outcome = {
+		sectionsUpserted: 0,
+		sectionsLinked: 0,
+		sectionsDeactivated: 0,
+		subjectsProcessed: 0,
+		failures: 0,
+		completed: false,
+	}
+
+	const syncStartedAt = new Date().toISOString()
+	const { data: termRow, error: termError } = await supabase
+		.from('terms')
+		.upsert(
+			{
+				semester: term.semester,
+				year: term.year,
+				banner_term_code: term.bannerTermCode,
+				synced_at: syncStartedAt,
+			},
+			{ onConflict: 'banner_term_code' },
+		)
+		.select('id, banner_subject_offset, banner_subjects_total, banner_sync_started_at')
+		.single()
+
+	if (termError || !termRow) {
+		outcome.failures++
+		return outcome
+	}
+
+	const termId = termRow.id as string
+	const offset = (termRow.banner_subject_offset as number) ?? 0
+	const cycleStarted = (termRow.banner_sync_started_at as string) ?? syncStartedAt
+
+	if (
+		termRow.banner_subjects_total != null &&
+		offset >= (termRow.banner_subjects_total as number)
+	) {
+		outcome.completed = true
+		return outcome
+	}
+
+	const session = new BannerSession()
+	await session.initTerm(term.bannerTermCode)
+	const subjects = await fetchBannerSubjects(session, term.bannerTermCode)
+	const total = subjects.length
+
+	if (termRow.banner_subjects_total !== total) {
+		await supabase
+			.from('terms')
+			.update({ banner_subjects_total: total })
+			.eq('id', termId)
+	}
+
+	const batch = subjects.slice(offset, offset + SUBJECTS_PER_BATCH)
+
+	for (const subject of batch) {
+		let sections: BannerSectionRow[] = []
+		try {
+			sections = await fetchBannerSectionsForSubject(
+				session,
+				term.bannerTermCode,
+				subject,
+			)
+		} catch {
+			outcome.failures++
+			continue
+		}
+
+		for (const section of sections) {
+			try {
+				await upsertBannerSection(supabase, termId, section)
+				outcome.sectionsUpserted++
+			} catch {
+				outcome.failures++
+			}
+		}
+		outcome.subjectsProcessed++
+	}
+
+	const newOffset = offset + batch.length
+	const completed = newOffset >= total
+
+	await supabase
+		.from('terms')
+		.update({
+			banner_subject_offset: completed ? total : newOffset,
+			synced_at: new Date().toISOString(),
+		})
+		.eq('id', termId)
+
+	if (completed) {
+		outcome.sectionsLinked = await linkTermSectionGroups(supabase, termId)
+		outcome.sectionsDeactivated = await deactivateStaleSections(
+			supabase,
+			termId,
+			cycleStarted,
+		)
+		outcome.completed = true
+	}
+
+	return outcome
+}
+
+async function linkTermSectionGroups(
 	supabase: SupabaseClient,
 	termId: string,
-	members: Array<{ crn: string; scheduleType: string | null }>,
 ): Promise<number> {
-	const lecture = members.find((m) =>
-		(m.scheduleType ?? '').toLowerCase().includes('lecture')
-	) ?? members[0]
-	const children = members.filter((m) => m.crn !== lecture.crn)
-	if (children.length === 0) return 0
+	const { data: rows } = await supabase
+		.from('sections')
+		.select('id, crn, schedule_type, link_group_id')
+		.eq('term_id', termId)
+		.not('link_group_id', 'is', null)
 
-	const { data: parent } = await supabase
+	const groups = new Map<string, Array<{
+		id: string
+		crn: string
+		scheduleType: string | null
+	}>>()
+
+	for (const row of rows ?? []) {
+		const gid = row.link_group_id as string
+		const group = groups.get(gid) ?? []
+		group.push({
+			id: row.id as string,
+			crn: row.crn as string,
+			scheduleType: row.schedule_type as string | null,
+		})
+		groups.set(gid, group)
+	}
+
+	let linked = 0
+	for (const [, members] of groups) {
+		if (members.length < 2) continue
+		const lecture = members.find((m) =>
+			(m.scheduleType ?? '').toLowerCase().includes('lecture')
+		) ?? members[0]
+		const children = members.filter((m) => m.id !== lecture.id)
+		for (const child of children) {
+			const { error } = await supabase
+				.from('sections')
+				.update({ linked_section_id: lecture.id })
+				.eq('id', child.id)
+			if (!error) linked++
+		}
+	}
+	return linked
+}
+
+async function deactivateStaleSections(
+	supabase: SupabaseClient,
+	termId: string,
+	cycleStartedAt: string,
+): Promise<number> {
+	const { data: stale } = await supabase
 		.from('sections')
 		.select('id')
 		.eq('term_id', termId)
-		.eq('crn', lecture.crn)
-		.maybeSingle()
-	if (!parent?.id) return 0
+		.eq('is_active', true)
+		.lt('synced_at', cycleStartedAt)
 
-	let linked = 0
-	for (const child of children) {
-		const { data: childRow } = await supabase
+	let count = 0
+	for (const row of stale ?? []) {
+		await supabase
 			.from('sections')
-			.select('id')
-			.eq('term_id', termId)
-			.eq('crn', child.crn)
-			.maybeSingle()
-		if (!childRow?.id) continue
-		const { error } = await supabase
-			.from('sections')
-			.update({ linked_section_id: parent.id })
-			.eq('id', childRow.id)
-		if (!error) linked++
+			.update({ is_active: false })
+			.eq('id', row.id)
+		count++
 	}
-	return linked
+	return count
 }
 
 async function upsertBannerSection(
@@ -173,7 +309,7 @@ async function upsertBannerSection(
 				department: section.department,
 				course_number: section.courseNumber,
 				course_name: section.courseTitle,
-				credit_hours: section.creditHours || 3,
+				credit_hours: Math.max(1, Math.round(section.creditHours || 3)),
 			},
 			{ onConflict: 'department,course_number' },
 		)
@@ -204,6 +340,7 @@ async function upsertBannerSection(
 				campus: section.campus,
 				contact_hours: section.contactHours,
 				banner_section_id: section.bannerSectionId,
+				link_group_id: section.linkedBannerSectionId,
 				is_active: true,
 				synced_at: new Date().toISOString(),
 			},
@@ -217,10 +354,10 @@ async function upsertInstructor(
 	name: string,
 	department: string,
 ): Promise<string> {
-	const normalized = normalizeInstructorName(name)
 	const displayName = name.trim().toUpperCase() === 'TBA'
 		? `TBA (${department})`
 		: name.trim()
+	const normalized = `${normalizeInstructorName(name)}::${department.toUpperCase()}`
 
 	const { data: existing } = await supabase
 		.from('instructors')
@@ -234,7 +371,13 @@ async function upsertInstructor(
 		.select('id')
 		.eq('name', displayName)
 		.maybeSingle()
-	if (byName?.id) return byName.id as string
+	if (byName?.id) {
+		await supabase
+			.from('instructors')
+			.update({ name_normalized: normalized })
+			.eq('id', byName.id)
+		return byName.id as string
+	}
 
 	const { data, error } = await supabase
 		.from('instructors')

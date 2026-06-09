@@ -20,11 +20,19 @@ serve(async (req) => {
 		}
 	}
 
+	let reset = false
+	try {
+		const body = await req.json()
+		reset = body?.reset === true
+	} catch {
+		reset = false
+	}
+
 	const supabase = createServiceClient()
 	const jobId = await startSyncJob(supabase, 'banner_full')
 
 	try {
-		const result = await runBannerSync(supabase)
+		const result = await runBannerSync(supabase, { reset })
 		await finishSyncJob(supabase, jobId, {
 			status: 'success',
 			recordsUpserted: result.sectionsUpserted,
