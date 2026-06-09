@@ -1,3 +1,4 @@
+import { BannerSession } from './banner-session.ts'
 import {
 	fetchBannerSectionsForSubject,
 	fetchBannerSubjects,
@@ -11,6 +12,7 @@ import type { SupabaseClient } from 'npm:@supabase/supabase-js@2'
 export interface BannerSyncResult {
 	termsSynced: number
 	sectionsUpserted: number
+	sectionsLinked: number
 	sectionsDeactivated: number
 	failures: number
 }
@@ -21,12 +23,14 @@ export async function runBannerSync(
 	const result: BannerSyncResult = {
 		termsSynced: 0,
 		sectionsUpserted: 0,
+		sectionsLinked: 0,
 		sectionsDeactivated: 0,
 		failures: 0,
 	}
 
 	const allTerms = await fetchBannerTerms()
 	const terms = selectTermsToSync(allTerms, 2)
+	const session = new BannerSession()
 
 	for (const term of terms) {
 		const { data: termRow, error: termError } = await supabase
@@ -49,13 +53,20 @@ export async function runBannerSync(
 		result.termsSynced++
 
 		const termId = termRow.id as string
-		const subjects = await fetchBannerSubjects(term.bannerTermCode)
+		await session.initTerm(term.bannerTermCode)
+
+		const subjects = await fetchBannerSubjects(session, term.bannerTermCode)
 		const seenCrns = new Set<string>()
+		const linkGroups = new Map<
+			string,
+			Array<{ crn: string; scheduleType: string | null }>
+		>()
 
 		for (const subject of subjects) {
 			let sections: BannerSectionRow[] = []
 			try {
 				sections = await fetchBannerSectionsForSubject(
+					session,
 					term.bannerTermCode,
 					subject,
 				)
@@ -69,9 +80,28 @@ export async function runBannerSync(
 					await upsertBannerSection(supabase, termId, section)
 					seenCrns.add(section.crn)
 					result.sectionsUpserted++
+					if (section.linkedBannerSectionId) {
+						const group = linkGroups.get(section.linkedBannerSectionId)
+							?? []
+						group.push({
+							crn: section.crn,
+							scheduleType: section.scheduleType,
+						})
+						linkGroups.set(section.linkedBannerSectionId, group)
+					}
 				} catch {
 					result.failures++
 				}
+			}
+		}
+
+		for (const [, members] of linkGroups) {
+			if (members.length < 2) continue
+			try {
+				const linked = await linkSectionGroup(supabase, termId, members)
+				result.sectionsLinked += linked
+			} catch {
+				result.failures++
 			}
 		}
 
@@ -92,6 +122,43 @@ export async function runBannerSync(
 	}
 
 	return result
+}
+
+async function linkSectionGroup(
+	supabase: SupabaseClient,
+	termId: string,
+	members: Array<{ crn: string; scheduleType: string | null }>,
+): Promise<number> {
+	const lecture = members.find((m) =>
+		(m.scheduleType ?? '').toLowerCase().includes('lecture')
+	) ?? members[0]
+	const children = members.filter((m) => m.crn !== lecture.crn)
+	if (children.length === 0) return 0
+
+	const { data: parent } = await supabase
+		.from('sections')
+		.select('id')
+		.eq('term_id', termId)
+		.eq('crn', lecture.crn)
+		.maybeSingle()
+	if (!parent?.id) return 0
+
+	let linked = 0
+	for (const child of children) {
+		const { data: childRow } = await supabase
+			.from('sections')
+			.select('id')
+			.eq('term_id', termId)
+			.eq('crn', child.crn)
+			.maybeSingle()
+		if (!childRow?.id) continue
+		const { error } = await supabase
+			.from('sections')
+			.update({ linked_section_id: parent.id })
+			.eq('id', childRow.id)
+		if (!error) linked++
+	}
+	return linked
 }
 
 async function upsertBannerSection(
@@ -160,7 +227,6 @@ async function upsertInstructor(
 		.select('id')
 		.eq('name_normalized', normalized)
 		.maybeSingle()
-
 	if (existing?.id) return existing.id as string
 
 	const { data: byName } = await supabase

@@ -1,37 +1,23 @@
+import { BannerSession } from './banner-session.ts'
 import { mapBannerSemester, snapTimeToFifteenMinutes } from './normalize.ts'
 import type { BannerSectionRow, BannerTerm } from './types.ts'
 
-const BANNER_BASE =
-	'https://registration.banner.gatech.edu/StudentRegistrationSsb/ssb'
-
-/**
- * Banner SSB class search JSON endpoints (Ellucian).
- * These paths are used by the public class-search SPA.
- */
-export const BANNER_ENDPOINTS = {
-	terms: `${BANNER_BASE}/classSearch/getTerms`,
-	subjects: `${BANNER_BASE}/classSearch/get_subject`,
-	search: `${BANNER_BASE}/classSearch/get_course`,
-} as const
-
 export async function fetchBannerTerms(): Promise<BannerTerm[]> {
 	const res = await fetch(
-		`${BANNER_ENDPOINTS.terms}?searchTerm=&offset=1&max=50`,
+		'https://registration.banner.gatech.edu/StudentRegistrationSsb/ssb/classSearch/getTerms?searchTerm=&offset=1&max=50',
 		{ headers: { Accept: 'application/json' } },
 	)
-	if (!res.ok) {
-		throw new Error(`Banner getTerms failed: ${res.status}`)
-	}
-	const payload = await res.json()
-	const rows = Array.isArray(payload) ? payload : payload?.data ?? []
-	return rows
+	if (!res.ok) throw new Error(`Banner getTerms failed: ${res.status}`)
+	const rows = await res.json()
+	return (Array.isArray(rows) ? rows : [])
 		.map((row: Record<string, string>) => {
-			const description = row.description ?? row.termDescription ?? ''
+			const description = row.description ?? ''
 			const semester = mapBannerSemester(description)
 			const yearMatch = description.match(/\d{4}/)
 			if (!semester || !yearMatch) return null
+			if (description.toLowerCase().includes('view only')) return null
 			return {
-				bannerTermCode: row.code ?? row.termCode ?? '',
+				bannerTermCode: row.code ?? '',
 				semester,
 				year: Number(yearMatch[0]),
 				description,
@@ -46,106 +32,133 @@ export function selectTermsToSync(
 ): BannerTerm[] {
 	const now = new Date()
 	const currentYear = now.getFullYear()
-	const sorted = [...terms].sort((a, b) => {
-		if (a.year !== b.year) return a.year - b.year
-		const order = { Spring: 1, Summer: 2, Fall: 3 }
-		return order[a.semester] - order[b.semester]
-	})
-	return sorted
-		.filter((t) => t.year >= currentYear - 1 && t.year <= currentYear + 1)
+	return [...terms]
+		.filter((t) => t.year >= currentYear && t.year <= currentYear + 1)
+		.sort((a, b) => {
+			if (a.year !== b.year) return a.year - b.year
+			const order = { Spring: 1, Summer: 2, Fall: 3 }
+			return order[a.semester] - order[b.semester]
+		})
 		.slice(0, maxTerms)
 }
 
 export async function fetchBannerSubjects(
+	session: BannerSession,
 	termCode: string,
 ): Promise<string[]> {
-	const res = await fetch(
-		`${BANNER_ENDPOINTS.subjects}?term=${encodeURIComponent(termCode)}`,
-		{ headers: { Accept: 'application/json' } },
+	const res = await session.fetch(
+		`classSearch/get_subject?searchTerm=&term=${encodeURIComponent(termCode)}&offset=1&max=500`,
 	)
-	if (!res.ok) {
-		throw new Error(`Banner get_subject failed: ${res.status}`)
-	}
-	const payload = await res.json()
-	const rows = Array.isArray(payload) ? payload : payload?.data ?? []
+	if (!res.ok) throw new Error(`Banner get_subject failed: ${res.status}`)
+	const rows = await res.json()
+	if (!Array.isArray(rows)) return []
 	return rows
-		.map((row: Record<string, string>) => row.code ?? row.subject)
+		.map((row: Record<string, string>) => row.code)
 		.filter(Boolean)
 }
 
 export async function fetchBannerSectionsForSubject(
+	session: BannerSession,
 	termCode: string,
 	subject: string,
 ): Promise<BannerSectionRow[]> {
-	const body = new URLSearchParams({
-		term: termCode,
-		subject,
-		courseNumber: '',
-		courseId: '',
-		pageOffset: '0',
-		pageMaxSize: '500',
-	})
-	const res = await fetch(BANNER_ENDPOINTS.search, {
-		method: 'POST',
-		headers: {
-			'Content-Type': 'application/x-www-form-urlencoded',
-			Accept: 'application/json',
-		},
-		body,
-	})
-	if (!res.ok) {
-		throw new Error(
-			`Banner get_course failed for ${subject}: ${res.status}`,
-		)
-	}
-	const payload = await res.json()
-	const courses = payload?.data ?? payload?.courses ?? payload ?? []
-	if (!Array.isArray(courses)) return []
-
 	const rows: BannerSectionRow[] = []
-	for (const course of courses) {
-		const meetings = course.meetingsFaculty ?? course.meetings ?? []
-		const faculty = course.faculty ?? []
-		const instructorName = faculty[0]?.displayName
-			?? faculty[0]?.name
-			?? 'TBA'
-		const dayPattern = parseMeetingDays(meetings)
-		const { startTime, endTime } = parseMeetingTimes(meetings)
-		rows.push({
-			bannerSectionId: String(course.id ?? course.courseReferenceNumber),
-			bannerTermCode: termCode,
-			department: course.subject ?? subject,
-			courseNumber: Number(course.courseNumber),
-			courseTitle: course.courseTitle ?? course.title ?? '',
-			creditHours: Number(course.creditHours ?? course.creditHour ?? 0),
-			sectionCode: course.sequenceNumber ?? course.section ?? 'A',
-			crn: String(course.courseReferenceNumber ?? course.crn),
-			instructorName,
-			scheduleType: course.scheduleTypeDescription
-				?? course.instructionalMethod
-				?? null,
-			campus: course.campusDescription ?? null,
-			location: meetings[0]?.building
-				? `${meetings[0].building} ${meetings[0]?.room ?? ''}`.trim()
-				: null,
-			contactHours: course.contactHours
-				? Number(course.contactHours)
-				: null,
-			dayPattern,
-			startTime: startTime ? snapTimeToFifteenMinutes(startTime) : '09:00:00',
-			endTime: endTime ? snapTimeToFifteenMinutes(endTime) : '10:15:00',
-			linkedBannerSectionId: course.linkIdentifier
-				? String(course.linkIdentifier)
-				: null,
+	let pageOffset = 0
+	const pageMaxSize = 500
+
+	while (true) {
+		const params = new URLSearchParams({
+			txt_subject: subject,
+			txt_courseNumber: '',
+			txt_term: termCode,
+			startDatepicker: '',
+			endDatepicker: '',
+			pageOffset: String(pageOffset),
+			pageMaxSize: String(pageMaxSize),
+			sortColumn: 'subjectDescription',
+			sortDirection: 'asc',
 		})
+		const res = await session.fetch(
+			`searchResults/searchResults?${params}`,
+		)
+		if (!res.ok) {
+			throw new Error(
+				`Banner searchResults failed for ${subject}: ${res.status}`,
+			)
+		}
+		const payload = await res.json()
+		if (!payload?.success) break
+
+		const batch = payload.data ?? []
+		if (!Array.isArray(batch) || batch.length === 0) break
+
+		for (const course of batch) {
+			rows.push(mapBannerCourse(course, termCode, subject))
+		}
+
+		const fetched = payload.sectionsFetchedCount ?? batch.length
+		pageOffset += fetched
+		if (fetched < pageMaxSize) break
+		if (pageOffset >= (payload.totalCount ?? 0)) break
 	}
+
 	return rows
 }
 
-function parseMeetingDays(
-	meetings: Array<Record<string, unknown>>,
-): string[] {
-	const days: string[] = []
+function mapBannerCourse(
+	course: Record<string, unknown>,
+	termCode: string,
+	subject: string,
+): BannerSectionRow {
+	const meetings = (course.meetingsFaculty ?? []) as Array<{
+		meetingTime?: Record<string, unknown>
+	}>
+	const faculty = (course.faculty ?? []) as Array<{
+		displayName?: string
+	}>
+	const meetingTime = meetings[0]?.meetingTime ?? {}
+	const instructorName = faculty[0]?.displayName ?? 'TBA'
+	const dayPattern = parseMeetingDays(meetingTime)
+	const startRaw = String(meetingTime.beginTime ?? '')
+	const endRaw = String(meetingTime.endTime ?? '')
+
+	return {
+		bannerSectionId: String(course.id ?? course.courseReferenceNumber),
+		bannerTermCode: termCode,
+		department: String(course.subject ?? subject),
+		courseNumber: Number(course.courseNumber),
+		courseTitle: String(course.courseTitle ?? ''),
+		creditHours: Number(course.creditHours ?? course.creditHourLow ?? 3),
+		sectionCode: String(course.sequenceNumber ?? 'A'),
+		crn: String(course.courseReferenceNumber),
+		instructorName,
+		scheduleType: course.scheduleTypeDescription
+			? String(course.scheduleTypeDescription).replace(/\*$/, '')
+			: null,
+		campus: course.campusDescription
+			? String(course.campusDescription).replace(/\*$/, '').trim()
+			: null,
+		location: meetingTime.buildingDescription
+			? `${meetingTime.buildingDescription} ${meetingTime.room ?? ''}`
+				.trim()
+			: null,
+		contactHours: meetingTime.hoursWeek
+			? Number(meetingTime.hoursWeek)
+			: null,
+		dayPattern,
+		startTime: startRaw
+			? snapTimeToFifteenMinutes(formatBannerTime(startRaw))
+			: '09:00:00',
+		endTime: endRaw
+			? snapTimeToFifteenMinutes(formatBannerTime(endRaw))
+			: '10:15:00',
+		linkedBannerSectionId: course.linkIdentifier
+			? String(course.linkIdentifier)
+			: null,
+	}
+}
+
+function parseMeetingDays(meetingTime: Record<string, unknown>): string[] {
 	const map: Record<string, string> = {
 		monday: 'Monday',
 		tuesday: 'Tuesday',
@@ -153,26 +166,11 @@ function parseMeetingDays(
 		thursday: 'Thursday',
 		friday: 'Friday',
 	}
-	for (const meeting of meetings) {
-		for (const [key, label] of Object.entries(map)) {
-			if (meeting[key] === true && !days.includes(label)) {
-				days.push(label)
-			}
-		}
+	const days: string[] = []
+	for (const [key, label] of Object.entries(map)) {
+		if (meetingTime[key] === true) days.push(label)
 	}
 	return days.length > 0 ? days : ['Monday']
-}
-
-function parseMeetingTimes(
-	meetings: Array<Record<string, string>>,
-): { startTime: string | null; endTime: string | null } {
-	const begin = meetings[0]?.beginTime ?? meetings[0]?.startTime
-	const end = meetings[0]?.endTime
-	if (!begin) return { startTime: null, endTime: null }
-	return {
-		startTime: formatBannerTime(begin),
-		endTime: end ? formatBannerTime(end) : null,
-	}
 }
 
 function formatBannerTime(raw: string): string {

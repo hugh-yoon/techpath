@@ -38,9 +38,8 @@ ALTER TABLE public.sections
 -- CRN was globally unique; re-scope to (term_id, crn).
 ALTER TABLE public.sections DROP CONSTRAINT IF EXISTS sections_crn_key;
 
-CREATE UNIQUE INDEX IF NOT EXISTS uq_sections_term_crn
-	ON public.sections (term_id, crn)
-	WHERE term_id IS NOT NULL;
+ALTER TABLE public.sections
+	ADD CONSTRAINT sections_term_id_crn_key UNIQUE (term_id, crn);
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_sections_crn_legacy
 	ON public.sections (crn)

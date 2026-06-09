@@ -31,6 +31,7 @@ export interface BannerSectionRow {
 
 export interface RmpProfessorSummary {
 	rmpProfessorId: string
+	rmpNodeId?: string
 	name: string
 	department: string | null
 	quality: number

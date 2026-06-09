@@ -11,6 +11,7 @@ const NAV_ITEMS = [
 	{ href: '/admin/sections', label: 'Sections' },
 	{ href: '/admin/prerequisites', label: 'Prerequisites' },
 	{ href: '/admin/reviews', label: 'Reviews' },
+	{ href: '/admin/rmp-matches', label: 'RMP Matches' },
 ] as const
 
 export function AdminSidebar() {

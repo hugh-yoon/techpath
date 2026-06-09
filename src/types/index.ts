@@ -148,6 +148,17 @@ export interface InstructorReview {
 	scraped_at?: string | null
 }
 
+export interface InstructorRmpCandidate {
+	id: string
+	instructor_id: string
+	rmp_professor_id: string
+	rmp_name: string
+	rmp_department: string | null
+	match_confidence: number
+	status: 'auto_matched' | 'pending' | 'approved' | 'rejected'
+	created_at: string
+}
+
 export interface SectionReview {
 	id: string
 	section_id: string

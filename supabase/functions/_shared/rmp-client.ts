@@ -1,69 +1,195 @@
 import type { RmpProfessorSummary, RmpReviewRow } from './types.ts'
 
-/** Georgia Institute of Technology on Rate My Professors */
-export const RMP_SCHOOL_ID = '361'
+const RMP_GRAPHQL = 'https://www.ratemyprofessors.com/graphql'
+const RMP_AUTH = 'Basic dGVzdDp0ZXN0'
+/** Georgia Tech — legacy school id 361 */
+const GT_SCHOOL_NODE_ID = 'U2Nob29sLTM2MQ=='
 
-const RMP_SEARCH_URL = 'https://www.ratemyprofessors.com/search/professors'
+const SEARCH_QUERY = `query NewSearchTeachersQuery($query: TeacherSearchQuery!) {
+  newSearch {
+    teachers(query: $query) {
+      edges {
+        node {
+          id
+          legacyId
+          firstName
+          lastName
+          department
+          avgRating
+          avgDifficulty
+          numRatings
+          wouldTakeAgainPercentRounded
+        }
+      }
+    }
+  }
+}`
 
-/**
- * RMP is a React SPA; production sync will likely need their GraphQL API.
- * This client defines the contract and implements search via HTML fallback.
- */
+const RATINGS_QUERY = `query TeacherRatingsListQuery($id: ID!, $after: String) {
+  node(id: $id) {
+    ... on Teacher {
+      legacyId
+      avgRating
+      avgDifficulty
+      numRatings
+      wouldTakeAgainPercentRounded
+      department
+      ratings(first: 20, after: $after) {
+        edges {
+          node {
+            id
+            legacyId
+            comment
+            class
+            clarityRating
+            difficultyRating
+            wouldTakeAgain
+            date
+          }
+        }
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+      }
+    }
+  }
+}`
+
+async function rmpGraphql<T>(
+	query: string,
+	variables: Record<string, unknown>,
+): Promise<T> {
+	const res = await fetch(RMP_GRAPHQL, {
+		method: 'POST',
+		headers: {
+			Authorization: RMP_AUTH,
+			'Content-Type': 'application/json',
+		},
+		body: JSON.stringify({ query, variables }),
+	})
+	if (!res.ok) throw new Error(`RMP GraphQL failed: ${res.status}`)
+	const payload = await res.json()
+	if (payload.errors?.length) {
+		throw new Error(payload.errors[0].message ?? 'RMP GraphQL error')
+	}
+	return payload.data as T
+}
+
 export async function searchRmpProfessors(
 	query: string,
 ): Promise<RmpProfessorSummary[]> {
-	const url = new URL(RMP_SEARCH_URL)
-	url.pathname = `${url.pathname}/${RMP_SCHOOL_ID}`
-	url.searchParams.set('q', query)
-
-	const res = await fetch(url.toString(), {
-		headers: {
-			Accept: 'text/html',
-			'User-Agent': 'TechPath-Ingest/1.0',
-		},
+	const data = await rmpGraphql<{
+		newSearch: {
+			teachers: {
+				edges: Array<{
+					node: {
+						id: string
+						legacyId: number
+						firstName: string
+						lastName: string
+						department: string | null
+						avgRating: number
+						avgDifficulty: number
+						numRatings: number
+						wouldTakeAgainPercentRounded: number | null
+					}
+				}>
+			}
+		}
+	}>(SEARCH_QUERY, {
+		query: { text: query, schoolID: GT_SCHOOL_NODE_ID },
 	})
-	if (!res.ok) {
-		throw new Error(`RMP search failed: ${res.status}`)
+
+	return (data.newSearch?.teachers?.edges ?? []).map(({ node }) => ({
+		rmpProfessorId: String(node.legacyId),
+		rmpNodeId: node.id,
+		name: `${node.firstName} ${node.lastName}`.trim(),
+		department: node.department,
+		quality: node.avgRating,
+		difficulty: node.avgDifficulty,
+		wouldTakeAgain: node.wouldTakeAgainPercentRounded,
+		ratingCount: node.numRatings,
+	}))
+}
+
+export async function fetchRmpProfessorProfile(
+	rmpNodeId: string,
+): Promise<{
+	summary: RmpProfessorSummary
+	reviews: RmpReviewRow[]
+}> {
+	const reviews: RmpReviewRow[] = []
+	let after: string | null = null
+	let summary: RmpProfessorSummary | null = null
+
+	do {
+		const data = await rmpGraphql<{
+			node: {
+				legacyId: number
+				avgRating: number
+				avgDifficulty: number
+				numRatings: number
+				wouldTakeAgainPercentRounded: number | null
+				department: string | null
+				ratings: {
+					edges: Array<{
+						node: {
+							id: string
+							legacyId: number
+							comment: string | null
+							class: string | null
+							clarityRating: number
+							difficultyRating: number
+							wouldTakeAgain: number | null
+							date: string | null
+						}
+					}>
+					pageInfo: { hasNextPage: boolean; endCursor: string | null }
+				}
+			} | null
+		}>(RATINGS_QUERY, { id: rmpNodeId, after })
+
+		const teacher = data.node
+		if (!teacher) break
+
+		if (!summary) {
+			summary = {
+				rmpProfessorId: String(teacher.legacyId),
+				rmpNodeId,
+				name: '',
+				department: teacher.department,
+				quality: teacher.avgRating,
+				difficulty: teacher.avgDifficulty,
+				wouldTakeAgain: teacher.wouldTakeAgainPercentRounded,
+				ratingCount: teacher.numRatings,
+			}
+		}
+
+		for (const { node } of teacher.ratings?.edges ?? []) {
+			reviews.push({
+				externalReviewId: String(node.legacyId),
+				rating: Math.round(node.clarityRating),
+				difficulty: node.difficultyRating,
+				wouldTakeAgain: node.wouldTakeAgain === 1
+					? true
+					: node.wouldTakeAgain === 0
+					? false
+					: null,
+				comment: node.comment,
+				courseContext: node.class,
+				termContext: node.date,
+			})
+		}
+
+		const pageInfo = teacher.ratings?.pageInfo
+		if (!pageInfo?.hasNextPage) break
+		after = pageInfo.endCursor
+	} while (after)
+
+	if (!summary) {
+		throw new Error(`RMP teacher not found: ${rmpNodeId}`)
 	}
-	const html = await res.text()
-	return parseRmpSearchHtml(html)
-}
 
-export async function fetchRmpProfessorReviews(
-	_rmpProfessorId: string,
-): Promise<RmpReviewRow[]> {
-	// TODO: implement profile page / GraphQL fetch once endpoint is confirmed
-	return []
-}
-
-function parseRmpSearchHtml(html: string): RmpProfessorSummary[] {
-	const results: RmpProfessorSummary[] = []
-	const cardPattern =
-		/QUALITY([\d.]+)(\d+)\s*ratings([\s\S]*?)(\d+)%\s*would take again\s*([\d.]+)\s*level of difficulty/gi
-
-	let match: RegExpExecArray | null
-	while ((match = cardPattern.exec(html)) !== null) {
-		const block = match[0]
-		const nameMatch = block.match(
-			/ratings([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/,
-		)
-		const deptMatch = block.match(
-			/(Computer Science|Biology|Psychology|Electrical Engineering|Mathematics|Physics|Chemistry|Mechanical Engineering)/,
-		)
-		if (!nameMatch) continue
-		results.push({
-			rmpProfessorId: slugify(nameMatch[1]),
-			name: nameMatch[1].trim(),
-			department: deptMatch?.[1] ?? null,
-			quality: Number(match[1]),
-			ratingCount: Number(match[2]),
-			wouldTakeAgain: Number(match[4]),
-			difficulty: Number(match[5]),
-		})
-	}
-	return results
-}
-
-function slugify(name: string): string {
-	return name.toLowerCase().replace(/\s+/g, '-')
+	return { summary, reviews }
 }

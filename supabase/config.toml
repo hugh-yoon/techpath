@@ -1,9 +1,6 @@
 # TechPath Supabase local config
 # https://supabase.com/docs/guides/cli/config
 
-[project]
-id = "hgpsftfvtrntwjcnxocb"
-
 [api]
 enabled = true
 port = 54321

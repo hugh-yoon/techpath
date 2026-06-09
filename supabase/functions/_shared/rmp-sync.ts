@@ -1,6 +1,6 @@
 import { scoreRmpMatch } from './name-match.ts'
 import {
-	fetchRmpProfessorReviews,
+	fetchRmpProfessorProfile,
 	searchRmpProfessors,
 } from './rmp-client.ts'
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2'
@@ -27,7 +27,7 @@ export async function runRmpSync(
 
 	const { data: instructors, error } = await supabase
 		.from('instructors')
-		.select('id, name, department, rmp_professor_id, rmp_synced_at')
+		.select('id, name, department, rmp_professor_id')
 		.order('rmp_synced_at', { ascending: true, nullsFirst: true })
 		.limit(DAILY_BATCH_SIZE)
 
@@ -36,8 +36,9 @@ export async function runRmpSync(
 	for (const instructor of instructors ?? []) {
 		result.instructorsProcessed++
 		try {
-			const linked = await syncInstructorRmp(supabase, instructor)
-			if (linked) result.matchesLinked++
+			const stats = await syncInstructorRmp(supabase, instructor)
+			if (stats.linked) result.matchesLinked++
+			result.reviewsUpserted += stats.reviewsUpserted
 		} catch {
 			result.failures++
 		}
@@ -54,19 +55,21 @@ async function syncInstructorRmp(
 		department: string
 		rmp_professor_id: string | null
 	},
-): Promise<boolean> {
-	let rmpId = instructor.rmp_professor_id
+): Promise<{ linked: boolean; reviewsUpserted: number }> {
+	let rmpNodeId: string | null = null
+	let rmpLegacyId = instructor.rmp_professor_id
 
-	if (!rmpId) {
+	if (!rmpLegacyId) {
 		const candidates = await searchRmpProfessors(instructor.name)
 		const match = scoreRmpMatch(
 			instructor.name,
 			instructor.department,
 			candidates,
 		)
-		if (!match) return false
+		if (!match) return { linked: false, reviewsUpserted: 0 }
 
-		rmpId = match.professor.rmpProfessorId
+		rmpLegacyId = match.professor.rmpProfessorId
+		rmpNodeId = match.professor.rmpNodeId ?? null
 		const status = match.confidence >= MATCH_CONFIDENCE_AUTO
 			? 'auto_matched'
 			: 'pending'
@@ -74,7 +77,7 @@ async function syncInstructorRmp(
 		await supabase.from('instructor_rmp_candidates').upsert(
 			{
 				instructor_id: instructor.id,
-				rmp_professor_id: rmpId,
+				rmp_professor_id: rmpLegacyId,
 				rmp_name: match.professor.name,
 				rmp_department: match.professor.department,
 				match_confidence: match.confidence,
@@ -83,26 +86,37 @@ async function syncInstructorRmp(
 			{ onConflict: 'instructor_id,rmp_professor_id' },
 		)
 
-		if (match.confidence < MATCH_CONFIDENCE_AUTO) return false
-
-		await supabase
-			.from('instructors')
-			.update({
-				rmp_professor_id: rmpId,
-				rmp_quality: match.professor.quality,
-				rmp_difficulty: match.professor.difficulty,
-				rmp_would_take_again: match.professor.wouldTakeAgain,
-				rmp_rating_count: match.professor.ratingCount,
-				rmp_department: match.professor.department,
-				rating: match.professor.quality,
-				rmp_synced_at: new Date().toISOString(),
-			})
-			.eq('id', instructor.id)
+		if (match.confidence < MATCH_CONFIDENCE_AUTO) {
+			return { linked: false, reviewsUpserted: 0 }
+		}
 	}
 
-	const reviews = await fetchRmpProfessorReviews(rmpId!)
+	if (!rmpNodeId) {
+		const search = await searchRmpProfessors(instructor.name)
+		const hit = search.find((c) => c.rmpProfessorId === rmpLegacyId)
+		rmpNodeId = hit?.rmpNodeId ?? null
+	}
+	if (!rmpNodeId) return { linked: false, reviewsUpserted: 0 }
+
+	const { summary, reviews } = await fetchRmpProfessorProfile(rmpNodeId)
+
+	await supabase
+		.from('instructors')
+		.update({
+			rmp_professor_id: summary.rmpProfessorId,
+			rmp_quality: summary.quality,
+			rmp_difficulty: summary.difficulty,
+			rmp_would_take_again: summary.wouldTakeAgain,
+			rmp_rating_count: summary.ratingCount,
+			rmp_department: summary.department,
+			rating: summary.quality,
+			rmp_synced_at: new Date().toISOString(),
+		})
+		.eq('id', instructor.id)
+
+	let reviewsUpserted = 0
 	for (const review of reviews) {
-		await supabase.from('instructor_reviews').upsert(
+		const { error } = await supabase.from('instructor_reviews').upsert(
 			{
 				instructor_id: instructor.id,
 				source: 'rmp',
@@ -117,12 +131,8 @@ async function syncInstructorRmp(
 			},
 			{ onConflict: 'external_review_id' },
 		)
+		if (!error) reviewsUpserted++
 	}
 
-	await supabase
-		.from('instructors')
-		.update({ rmp_synced_at: new Date().toISOString() })
-		.eq('id', instructor.id)
-
-	return true
+	return { linked: true, reviewsUpserted }
 }

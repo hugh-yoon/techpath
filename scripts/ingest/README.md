@@ -83,10 +83,19 @@ curl -X POST \
 - [GT Banner class search](https://registration.banner.gatech.edu/StudentRegistrationSsb/ssb/classSearch/classSearch)
 - [RMP — Georgia Tech (school 361)](https://www.ratemyprofessors.com/search/professors/361?q=*)
 
-## Next implementation steps
+## Banner API flow (validated)
 
-1. Validate Banner JSON response shapes against live API (CS, one term).
-2. Implement RMP GraphQL/profile fetch for individual review comments.
-3. Second-pass linker for `linked_section_id` (labs → lectures).
-4. Surface RMP-sourced reviews in instructor UI with attribution.
-5. Admin view for `sync_jobs` and low-confidence `instructor_rmp_candidates`.
+1. `GET classSearch/get_subject?term={code}&offset=1&max=500`
+2. `POST term/search` (form body) — establishes session cookies
+3. `GET searchResults/searchResults?txt_subject=CS&txt_term={code}&pageOffset=0&pageMaxSize=500`
+
+## RMP API
+
+GraphQL `POST https://www.ratemyprofessors.com/graphql` with
+`Authorization: Basic dGVzdDp0ZXN0` and GT school id `U2Nob29sLTM2MQ==`.
+
+## Remaining steps
+
+1. Surface RMP-sourced reviews in instructor UI with attribution.
+2. Admin view for `sync_jobs` run history.
+3. Enable `pg_cron` schedules after deploy verification.
