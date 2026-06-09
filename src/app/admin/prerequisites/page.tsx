@@ -1,11 +1,14 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useAllPrerequisites } from '@/hooks/use-prerequisites'
 import { useCourses } from '@/hooks/use-courses'
+import { useClientTable } from '@/hooks/use-client-table'
 import { supabase } from '@/lib/supabaseClient'
 import { BackLink } from '@/components/ui/back-link'
 import { Button } from '@/components/ui/button'
+import { DataPagination } from '@/components/ui/data-pagination'
+import { AdminTableToolbar } from '@/components/admin/admin-table-toolbar'
 import {
 	Table,
 	TableBody,
@@ -21,6 +24,7 @@ export default function AdminPrerequisitesPage() {
 	const { data: prerequisites, isLoading, error, refetch } = useAllPrerequisites()
 	const { data: courses } = useCourses()
 	const [dialogOpen, setDialogOpen] = useState(false)
+	const [search, setSearch] = useState('')
 
 	const courseOptions = useMemo(
 		() =>
@@ -31,13 +35,28 @@ export default function AdminPrerequisitesPage() {
 		[courses],
 	)
 
-	const getCourseLabel = useCallback(
-		(id: string) => {
-			const c = courses.find((x) => x.id === id)
-			return c ? `${c.department} ${c.course_number}` : id
-		},
+	const courseById = useMemo(
+		() => new Map(courses.map((c) => [c.id, c])),
 		[courses],
 	)
+
+	const getCourseLabel = useCallback(
+		(id: string) => {
+			const c = courseById.get(id)
+			return c ? `${c.department} ${c.course_number}` : id
+		},
+		[courseById],
+	)
+
+	const { page, setPage, pageItems, totalCount, pageSize } = useClientTable({
+		items: prerequisites,
+		searchQuery: search,
+		searchFn: (row, query) => {
+			const course = getCourseLabel(row.course_id).toLowerCase()
+			const prereq = getCourseLabel(row.prerequisite_course_id).toLowerCase()
+			return course.includes(query) || prereq.includes(query)
+		},
+	})
 
 	const handleSubmit = useCallback(
 		async (values: PrerequisiteFormValues) => {
@@ -79,6 +98,14 @@ export default function AdminPrerequisitesPage() {
 				<h1 className="text-xl font-semibold">Prerequisites</h1>
 				<Button onClick={() => setDialogOpen(true)}>Add Prerequisite</Button>
 			</div>
+			<AdminTableToolbar
+				searchId="prerequisite-search"
+				searchLabel="Search"
+				searchPlaceholder="Course or prerequisite"
+				searchValue={search}
+				onSearchChange={setSearch}
+				resultCount={totalCount}
+			/>
 			<PrerequisiteFormDialog
 				open={dialogOpen}
 				onOpenChange={setDialogOpen}
@@ -87,37 +114,46 @@ export default function AdminPrerequisitesPage() {
 			/>
 			{isLoading ? (
 				<p className="mt-4 text-gt-gray-matter dark:text-foreground-muted">Loading…</p>
-				) : (
-				<div className="mt-4 overflow-x-auto rounded-md border border-gt-pi-mile dark:border-gt-gray-matter">
-					<Table>
-						<TableHeader>
-							<TableRow>
-								<TableHead>Course</TableHead>
-								<TableHead>Prerequisite</TableHead>
-								<TableHead className="w-[100px]">Actions</TableHead>
-							</TableRow>
-						</TableHeader>
-						<TableBody>
-							{prerequisites.map((p) => (
-								<TableRow key={p.id}>
-									<TableCell>{getCourseLabel(p.course_id)}</TableCell>
-									<TableCell>{getCourseLabel(p.prerequisite_course_id)}</TableCell>
-									<TableCell>
-										<Button
-											variant="ghost"
-											size="sm"
-											className="text-red-600 hover:text-red-700"
-											onClick={() => handleDelete(p.id)}
-											aria-label={`Remove prerequisite`}
-										>
-											Delete
-										</Button>
-									</TableCell>
+			) : (
+				<>
+					<div className="mt-4 overflow-x-auto rounded-md border border-gt-pi-mile dark:border-gt-gray-matter">
+						<Table>
+							<TableHeader>
+								<TableRow>
+									<TableHead>Course</TableHead>
+									<TableHead>Prerequisite</TableHead>
+									<TableHead className="w-[100px]">Actions</TableHead>
 								</TableRow>
-							))}
-						</TableBody>
-					</Table>
-				</div>
+							</TableHeader>
+							<TableBody>
+								{pageItems.map((p) => (
+									<TableRow key={p.id}>
+										<TableCell>{getCourseLabel(p.course_id)}</TableCell>
+										<TableCell>{getCourseLabel(p.prerequisite_course_id)}</TableCell>
+										<TableCell>
+											<Button
+												variant="ghost"
+												size="sm"
+												className="text-red-600 hover:text-red-700"
+												onClick={() => handleDelete(p.id)}
+												aria-label="Remove prerequisite"
+											>
+												Delete
+											</Button>
+										</TableCell>
+									</TableRow>
+								))}
+							</TableBody>
+						</Table>
+					</div>
+					<DataPagination
+						page={page}
+						totalCount={totalCount}
+						pageSize={pageSize}
+						onPageChange={setPage}
+						ariaLabel="Prerequisites pagination"
+					/>
+				</>
 			)}
 		</div>
 	)

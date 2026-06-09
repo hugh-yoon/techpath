@@ -1,10 +1,13 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useMemo, useState, useCallback } from 'react'
 import { useCourses } from '@/hooks/use-courses'
+import { useClientTable } from '@/hooks/use-client-table'
 import { supabase } from '@/lib/supabaseClient'
 import { BackLink } from '@/components/ui/back-link'
 import { Button } from '@/components/ui/button'
+import { DataPagination } from '@/components/ui/data-pagination'
+import { AdminTableToolbar } from '@/components/admin/admin-table-toolbar'
 import {
 	Table,
 	TableBody,
@@ -28,6 +31,34 @@ export default function AdminCoursesPage() {
 	const { data: courses, isLoading, error, refetch } = useCourses()
 	const [dialogOpen, setDialogOpen] = useState(false)
 	const [editingCourse, setEditingCourse] = useState<Course | null>(null)
+	const [search, setSearch] = useState('')
+	const [departmentFilter, setDepartmentFilter] = useState('__all__')
+
+	const departments = useMemo(
+		() => [...new Set(courses.map((c) => c.department))].sort(),
+		[courses],
+	)
+
+	const { page, setPage, pageItems, totalCount, pageSize } = useClientTable({
+		items: courses,
+		searchQuery: search,
+		searchFn: (course, query) => {
+			const haystack = [
+				course.department,
+				String(course.course_number),
+				course.course_name,
+			]
+				.join(' ')
+				.toLowerCase()
+			return haystack.includes(query)
+		},
+		filters: [{ id: 'department', value: departmentFilter }],
+		filterFn: (course, filters) => {
+			const dept = filters.find((f) => f.id === 'department')?.value
+			if (!dept || dept === '__all__') return true
+			return course.department === dept
+		},
+	})
 
 	const handleCreate = useCallback(() => {
 		setEditingCourse(null)
@@ -128,6 +159,26 @@ export default function AdminCoursesPage() {
 				<h1 className="text-xl font-semibold">Courses</h1>
 				<Button onClick={handleCreate}>Add Course</Button>
 			</div>
+			<AdminTableToolbar
+				searchId="course-search"
+				searchLabel="Search"
+				searchPlaceholder="Department, number, or name"
+				searchValue={search}
+				onSearchChange={setSearch}
+				resultCount={totalCount}
+				filters={[
+					{
+						id: 'department-filter',
+						label: 'Department',
+						value: departmentFilter,
+						onChange: setDepartmentFilter,
+						options: [
+							{ value: '__all__', label: 'All departments' },
+							...departments.map((d) => ({ value: d, label: d })),
+						],
+					},
+				]}
+			/>
 			<CourseFormDialog
 				open={dialogOpen}
 				onOpenChange={setDialogOpen}
@@ -136,62 +187,71 @@ export default function AdminCoursesPage() {
 			/>
 			{isLoading ? (
 				<p className="mt-4 text-gt-gray-matter dark:text-foreground-muted">Loading…</p>
-				) : (
-				<div className="mt-4 overflow-x-auto rounded-md border border-gt-pi-mile dark:border-gt-gray-matter">
-					<Table>
-						<TableHeader>
-							<TableRow>
-								<TableHead>Department</TableHead>
-								<TableHead>Number</TableHead>
-								<TableHead>Name</TableHead>
-								<TableHead>Credit hours</TableHead>
-								<TableHead>Difficulty</TableHead>
-								<TableHead>Discovery</TableHead>
-								<TableHead className="w-[120px]">Actions</TableHead>
-							</TableRow>
-						</TableHeader>
-						<TableBody>
-							{courses.map((c) => (
-								<TableRow key={c.id}>
-									<TableCell>{c.department}</TableCell>
-									<TableCell>{c.course_number}</TableCell>
-									<TableCell>{c.course_name}</TableCell>
-									<TableCell>{c.credit_hours}</TableCell>
-									<TableCell>{c.difficulty_rating ?? '—'}</TableCell>
-									<TableCell className="text-sm text-gt-gray-matter dark:text-foreground-muted">
-										{[
-											c.deck_summary?.trim() ? 'Summary' : null,
-											(c.course_red_flags?.length ?? 0) > 0
-												? `${c.course_red_flags?.length} flag(s)`
-												: null,
-										]
-											.filter(Boolean)
-											.join(' · ') || '—'}
-									</TableCell>
-									<TableCell>
-										<Button
-											variant="ghost"
-											size="sm"
-											onClick={() => handleEdit(c)}
-											aria-label={`Edit ${c.department} ${c.course_number}`}
-										>
-											Edit
-										</Button>
-										<Button
-											variant="ghost"
-											size="sm"
-											className="text-red-600 hover:text-red-700"
-											onClick={() => handleDelete(c.id)}
-											aria-label={`Delete ${c.department} ${c.course_number}`}
-										>
-											Delete
-										</Button>
-									</TableCell>
+			) : (
+				<>
+					<div className="mt-4 overflow-x-auto rounded-md border border-gt-pi-mile dark:border-gt-gray-matter">
+						<Table>
+							<TableHeader>
+								<TableRow>
+									<TableHead>Department</TableHead>
+									<TableHead>Number</TableHead>
+									<TableHead>Name</TableHead>
+									<TableHead>Credit hours</TableHead>
+									<TableHead>Difficulty</TableHead>
+									<TableHead>Discovery</TableHead>
+									<TableHead className="w-[120px]">Actions</TableHead>
 								</TableRow>
-							))}
-						</TableBody>
-					</Table>
-				</div>
+							</TableHeader>
+							<TableBody>
+								{pageItems.map((c) => (
+									<TableRow key={c.id}>
+										<TableCell>{c.department}</TableCell>
+										<TableCell>{c.course_number}</TableCell>
+										<TableCell>{c.course_name}</TableCell>
+										<TableCell>{c.credit_hours}</TableCell>
+										<TableCell>{c.difficulty_rating ?? '—'}</TableCell>
+										<TableCell className="text-sm text-gt-gray-matter dark:text-foreground-muted">
+											{[
+												c.deck_summary?.trim() ? 'Summary' : null,
+												(c.course_red_flags?.length ?? 0) > 0
+													? `${c.course_red_flags?.length} flag(s)`
+													: null,
+											]
+												.filter(Boolean)
+												.join(' · ') || '—'}
+										</TableCell>
+										<TableCell>
+											<Button
+												variant="ghost"
+												size="sm"
+												onClick={() => handleEdit(c)}
+												aria-label={`Edit ${c.department} ${c.course_number}`}
+											>
+												Edit
+											</Button>
+											<Button
+												variant="ghost"
+												size="sm"
+												className="text-red-600 hover:text-red-700"
+												onClick={() => handleDelete(c.id)}
+												aria-label={`Delete ${c.department} ${c.course_number}`}
+											>
+												Delete
+											</Button>
+										</TableCell>
+									</TableRow>
+								))}
+							</TableBody>
+						</Table>
+					</div>
+					<DataPagination
+						page={page}
+						totalCount={totalCount}
+						pageSize={pageSize}
+						onPageChange={setPage}
+						ariaLabel="Courses pagination"
+					/>
+				</>
 			)}
 		</div>
 	)

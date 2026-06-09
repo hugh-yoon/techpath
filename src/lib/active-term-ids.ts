@@ -9,10 +9,10 @@ export async function fetchActiveTermIds(): Promise<string[]> {
 	return selectActiveTerms(data ?? []).map((t) => t.id)
 }
 
-/** PostgREST `or` filter: active Banner terms plus legacy rows without term_id. */
+/** PostgREST filter: active Banner terms only. */
 export function activeSectionTermOrFilter(activeTermIds: string[]): string | null {
 	if (activeTermIds.length === 0) return null
-	return `term_id.is.null,term_id.in.(${activeTermIds.join(',')})`
+	return `term_id.in.(${activeTermIds.join(',')})`
 }
 
 export function sectionMatchesDisplayTerms(
@@ -20,7 +20,7 @@ export function sectionMatchesDisplayTerms(
 	activeTermIds: string[],
 ): boolean {
 	if (section.is_active === false) return false
-	if (!section.term_id) return true
+	if (!section.term_id) return false
 	if (activeTermIds.length === 0) return true
 	return activeTermIds.includes(section.term_id)
 }

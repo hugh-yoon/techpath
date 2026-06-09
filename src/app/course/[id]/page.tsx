@@ -6,7 +6,7 @@ import { useParams, usePathname, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { PageHeader } from '@/components/ui/page-header'
 import { useCourse, useCourseReviews, useCourseRmpReviews } from '@/hooks'
-import { InstructorReviewCard } from '@/components/reviews'
+import { InstructorReviewCard, InstructorRmpBadge } from '@/components/reviews'
 import { useSectionsByCourse } from '@/hooks/use-sections'
 import { AddToScheduleDialog } from '@/components/course/add-to-schedule-dialog'
 import { CourseReviewDialog } from '@/components/course/course-review-dialog'
@@ -172,6 +172,7 @@ export default function CourseDetailPage() {
 										) : (
 											<span>{s.instructor?.name ?? 'TBA'}</span>
 										)}
+										<InstructorRmpBadge instructor={s.instructor} />
 										<span className="mx-2 text-gt-gray-matter">·</span>
 										<span className="text-gt-gray-matter dark:text-foreground-muted">
 											{formatDaysShort(s.day_pattern)} {formatTimeDisplay(s.start_time)}–

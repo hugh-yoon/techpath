@@ -34,7 +34,7 @@ const RATINGS_QUERY = `query TeacherRatingsListQuery($id: ID!, $after: String) {
       numRatings
       wouldTakeAgainPercentRounded
       department
-      ratings(first: 20, after: $after) {
+      ratings(first: 50, after: $after) {
         edges {
           node {
             id
@@ -105,6 +105,8 @@ export async function searchRmpProfessors(
 		rmpProfessorId: String(node.legacyId),
 		rmpNodeId: node.id,
 		name: `${node.firstName} ${node.lastName}`.trim(),
+		firstName: node.firstName,
+		lastName: node.lastName,
 		department: node.department,
 		quality: node.avgRating,
 		difficulty: node.avgDifficulty,

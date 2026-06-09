@@ -1,12 +1,17 @@
-import { scoreRmpMatch } from './name-match.ts'
+import {
+	RMP_AUTO_MATCH_THRESHOLD,
+	scoreRmpMatch,
+	searchRmpProfessorCandidates,
+} from './name-match.ts'
 import {
 	fetchRmpProfessorProfile,
 	searchRmpProfessors,
 } from './rmp-client.ts'
+import { fetchScheduledInstructorIds } from './scheduled-instructors.ts'
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2'
 
-const MATCH_CONFIDENCE_AUTO = 0.75
 const DAILY_BATCH_SIZE = 100
+const RMP_REVIEWS_PAGE_SIZE = 50
 
 export interface RmpSyncResult {
 	instructorsProcessed: number
@@ -15,8 +20,15 @@ export interface RmpSyncResult {
 	failures: number
 }
 
+export interface RmpSyncOptions {
+	/** Sync specific schedule instructors (admin / backfill). */
+	instructorIds?: string[]
+	batchSize?: number
+}
+
 export async function runRmpSync(
 	supabase: SupabaseClient,
+	options: RmpSyncOptions = {},
 ): Promise<RmpSyncResult> {
 	const result: RmpSyncResult = {
 		instructorsProcessed: 0,
@@ -25,12 +37,25 @@ export async function runRmpSync(
 		failures: 0,
 	}
 
-	const { data: instructors, error } = await supabase
+	const scheduledInstructorIds = await fetchScheduledInstructorIds(supabase)
+	if (scheduledInstructorIds.length === 0) return result
+
+	const targetIds = options.instructorIds?.length
+		? options.instructorIds
+		: scheduledInstructorIds
+
+	if (targetIds.length === 0) return result
+
+	const batchSize = options.batchSize ?? DAILY_BATCH_SIZE
+
+	let query = supabase
 		.from('instructors')
 		.select('id, name, department, rmp_professor_id')
+		.in('id', targetIds)
 		.order('rmp_synced_at', { ascending: true, nullsFirst: true })
-		.limit(DAILY_BATCH_SIZE)
+		.limit(batchSize)
 
+	const { data: instructors, error } = await query
 	if (error) throw error
 
 	for (const instructor of instructors ?? []) {
@@ -47,6 +72,16 @@ export async function runRmpSync(
 	return result
 }
 
+async function markRmpSyncAttempted(
+	supabase: SupabaseClient,
+	instructorId: string,
+) {
+	await supabase
+		.from('instructors')
+		.update({ rmp_synced_at: new Date().toISOString() })
+		.eq('id', instructorId)
+}
+
 async function syncInstructorRmp(
 	supabase: SupabaseClient,
 	instructor: {
@@ -60,17 +95,23 @@ async function syncInstructorRmp(
 	let rmpLegacyId = instructor.rmp_professor_id
 
 	if (!rmpLegacyId) {
-		const candidates = await searchRmpProfessors(instructor.name)
+		const candidates = await searchRmpProfessorCandidates(
+			searchRmpProfessors,
+			instructor.name,
+		)
 		const match = scoreRmpMatch(
 			instructor.name,
 			instructor.department,
 			candidates,
 		)
-		if (!match) return { linked: false, reviewsUpserted: 0 }
+		if (!match) {
+			await markRmpSyncAttempted(supabase, instructor.id)
+			return { linked: false, reviewsUpserted: 0 }
+		}
 
 		rmpLegacyId = match.professor.rmpProfessorId
 		rmpNodeId = match.professor.rmpNodeId ?? null
-		const status = match.confidence >= MATCH_CONFIDENCE_AUTO
+		const status = match.confidence >= RMP_AUTO_MATCH_THRESHOLD
 			? 'auto_matched'
 			: 'pending'
 
@@ -86,17 +127,24 @@ async function syncInstructorRmp(
 			{ onConflict: 'instructor_id,rmp_professor_id' },
 		)
 
-		if (match.confidence < MATCH_CONFIDENCE_AUTO) {
+		if (match.confidence < RMP_AUTO_MATCH_THRESHOLD) {
+			await markRmpSyncAttempted(supabase, instructor.id)
 			return { linked: false, reviewsUpserted: 0 }
 		}
 	}
 
 	if (!rmpNodeId) {
-		const search = await searchRmpProfessors(instructor.name)
+		const search = await searchRmpProfessorCandidates(
+			searchRmpProfessors,
+			instructor.name,
+		)
 		const hit = search.find((c) => c.rmpProfessorId === rmpLegacyId)
 		rmpNodeId = hit?.rmpNodeId ?? null
 	}
-	if (!rmpNodeId) return { linked: false, reviewsUpserted: 0 }
+	if (!rmpNodeId) {
+		await markRmpSyncAttempted(supabase, instructor.id)
+		return { linked: false, reviewsUpserted: 0 }
+	}
 
 	const { summary, reviews } = await fetchRmpProfessorProfile(rmpNodeId)
 

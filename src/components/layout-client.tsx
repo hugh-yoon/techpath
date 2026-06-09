@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { TechPlanChat } from '@/components/techplan-chat'
 import { ActionToastProvider } from '@/components/ui/action-toast'
+import { QueryProvider } from '@/components/providers/query-provider'
 
 const PAGE_TRANSITION = {
 	initial: { opacity: 0, y: 6 },
@@ -14,17 +15,19 @@ const PAGE_TRANSITION = {
 export function LayoutClient({ children }: { children: React.ReactNode }) {
 	const pathname = usePathname()
 	return (
-		<ActionToastProvider>
-			<motion.div
-				key={pathname ?? 'layout'}
-				initial={PAGE_TRANSITION.initial}
-				animate={PAGE_TRANSITION.animate}
-				transition={PAGE_TRANSITION.transition}
-				className="min-h-screen"
-			>
-				{children}
-			</motion.div>
-			<TechPlanChat />
-		</ActionToastProvider>
+		<QueryProvider>
+			<ActionToastProvider>
+				<motion.div
+					key={pathname ?? 'layout'}
+					initial={PAGE_TRANSITION.initial}
+					animate={PAGE_TRANSITION.animate}
+					transition={PAGE_TRANSITION.transition}
+					className="min-h-screen"
+				>
+					{children}
+				</motion.div>
+				<TechPlanChat />
+			</ActionToastProvider>
+		</QueryProvider>
 	)
 }

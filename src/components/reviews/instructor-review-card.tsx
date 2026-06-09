@@ -35,6 +35,11 @@ export function InstructorReviewCard({
 						: `Course: ${review.course_context}`}
 				</p>
 			)}
+			{review.term_context && (
+				<p className="mt-1 text-xs text-gt-gray-matter dark:text-foreground-muted">
+					{review.term_context}
+				</p>
+			)}
 			{review.comment && (
 				<p className="mt-2 text-gt-gray-matter dark:text-foreground-muted">
 					{review.comment}

@@ -5,15 +5,22 @@ import {
 	fetchBannerTerms,
 	selectTermsToSync,
 } from './banner-client.ts'
-import { normalizeInstructorName } from './normalize.ts'
+import { normalizeInstructorName, parsePersonName } from './matching/person-name.ts'
 import type { BannerSectionRow } from './types.ts'
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2'
 
 const SUBJECTS_PER_BATCH = 3
+const SUBJECT_RESYNC_SECTION_LIMIT = 200
 
 export interface BannerSyncOptions {
 	/** Reset subject offsets and re-pull all terms (monthly). */
 	reset?: boolean
+	/** Re-sync specific Banner subjects (e.g. CS, CSE) regardless of batch offset. */
+	subjects?: string[]
+	/** Section offset within each subject during targeted resync. */
+	subjectSectionOffset?: number
+	/** Max sections per subject per targeted resync invocation. */
+	subjectSectionLimit?: number
 }
 
 export interface BannerSyncResult {
@@ -24,6 +31,11 @@ export interface BannerSyncResult {
 	subjectsProcessed: number
 	termsCompleted: number
 	failures: number
+	subjectSectionOffset?: number
+	subjectSectionLimit?: number
+	subjectSectionsProcessed?: number
+	subjectSectionsTotal?: number
+	subjectResyncComplete?: boolean
 }
 
 export async function runBannerSync(
@@ -49,6 +61,24 @@ export async function runBannerSync(
 		}
 	}
 
+	if (options.subjects?.length) {
+		const subjectResult = await syncNamedSubjects(
+			supabase,
+			terms,
+			options.subjects,
+			options.subjectSectionOffset ?? 0,
+			options.subjectSectionLimit ?? SUBJECT_RESYNC_SECTION_LIMIT,
+		)
+		result.termsSynced = subjectResult.termsSynced
+		result.sectionsUpserted += subjectResult.sectionsUpserted
+		result.sectionsLinked += subjectResult.sectionsLinked
+		result.sectionsDeactivated += subjectResult.sectionsDeactivated
+		result.subjectsProcessed += subjectResult.subjectsProcessed
+		result.failures += subjectResult.failures
+		result.termsCompleted = await countCompletedTerms(supabase, terms)
+		return { ...result, ...subjectResult.meta }
+	}
+
 	const termToSync = await pickIncompleteTerm(supabase, terms)
 	if (!termToSync) {
 		result.termsCompleted = terms.length
@@ -65,6 +95,97 @@ export async function runBannerSync(
 	result.termsCompleted = await countCompletedTerms(supabase, terms)
 
 	return result
+}
+
+async function syncNamedSubjects(
+	supabase: SupabaseClient,
+	terms: Array<{ bannerTermCode: string; semester: string; year: number }>,
+	subjects: string[],
+	sectionOffset: number,
+	sectionLimit: number,
+) {
+	const outcome = {
+		termsSynced: 0,
+		sectionsUpserted: 0,
+		sectionsLinked: 0,
+		sectionsDeactivated: 0,
+		subjectsProcessed: 0,
+		failures: 0,
+		meta: {
+			subjectSectionOffset: sectionOffset,
+			subjectSectionLimit: sectionLimit,
+			subjectSectionsProcessed: 0,
+			subjectSectionsTotal: 0,
+			subjectResyncComplete: true,
+		},
+	}
+
+	const session = new BannerSession()
+	for (const term of terms) {
+		const syncStartedAt = new Date().toISOString()
+		const { data: termRow, error: termError } = await supabase
+			.from('terms')
+			.upsert(
+				{
+					semester: term.semester,
+					year: term.year,
+					banner_term_code: term.bannerTermCode,
+					synced_at: syncStartedAt,
+				},
+				{ onConflict: 'banner_term_code' },
+			)
+			.select('id, banner_sync_started_at')
+			.single()
+
+		if (termError || !termRow) {
+			outcome.failures++
+			continue
+		}
+
+		outcome.termsSynced++
+		const termId = termRow.id as string
+		await session.initTerm(term.bannerTermCode)
+
+		for (const subject of subjects) {
+			let sections: BannerSectionRow[] = []
+			try {
+				sections = await fetchBannerSectionsForSubject(
+					session,
+					term.bannerTermCode,
+					subject,
+				)
+			} catch {
+				outcome.failures++
+				continue
+			}
+
+			outcome.meta.subjectSectionsTotal += sections.length
+			const slice = sections.slice(sectionOffset, sectionOffset + sectionLimit)
+			if (sectionOffset + sectionLimit < sections.length) {
+				outcome.meta.subjectResyncComplete = false
+			}
+
+			let subjectUpserts = 0
+			for (const section of slice) {
+				try {
+					await upsertBannerSection(supabase, termId, section)
+					outcome.sectionsUpserted++
+					subjectUpserts++
+					outcome.meta.subjectSectionsProcessed++
+				} catch {
+					outcome.failures++
+				}
+			}
+
+			if (subjectUpserts > 0 || sections.length === 0) {
+				outcome.subjectsProcessed++
+			}
+		}
+
+		outcome.sectionsLinked += await linkTermSectionGroups(supabase, termId)
+	}
+
+	return outcome
 }
 
 async function resetTermProgress(
@@ -356,8 +477,10 @@ async function upsertInstructor(
 ): Promise<string> {
 	const displayName = name.trim().toUpperCase() === 'TBA'
 		? `TBA (${department})`
-		: name.trim()
-	const normalized = `${normalizeInstructorName(name)}::${department.toUpperCase()}`
+		: formatInstructorDisplayName(name)
+	const parsed = parsePersonName(name)
+	const nameKey = parsed?.sortKey ?? normalizeInstructorName(name)
+	const normalized = `${nameKey}::${department.toUpperCase()}`
 
 	const { data: existing } = await supabase
 		.from('instructors')
@@ -390,4 +513,19 @@ async function upsertInstructor(
 		.single()
 	if (error) throw error
 	return data.id as string
+}
+
+function formatInstructorDisplayName(name: string): string {
+	const parsed = parsePersonName(name)
+	if (!parsed) return name.trim()
+	if (!parsed.first) return titleCaseToken(parsed.last)
+	return [parsed.first, parsed.middle, parsed.last]
+		.filter(Boolean)
+		.map(titleCaseToken)
+		.join(' ')
+}
+
+function titleCaseToken(token: string): string {
+	if (!token) return token
+	return token.charAt(0).toUpperCase() + token.slice(1)
 }

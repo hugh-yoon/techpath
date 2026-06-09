@@ -1,33 +1,27 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { getCachedActiveTermIds } from '@/lib/active-term-cache'
+import { queryKeys } from '@/lib/query-client'
 import { fetchSearchableDepartments } from '@/lib/searchable-courses'
 
+export function useActiveTermIds() {
+	return useQuery({
+		queryKey: queryKeys.activeTermIds,
+		queryFn: getCachedActiveTermIds,
+		staleTime: 5 * 60 * 1000,
+	})
+}
+
 export function useSearchableDepartments() {
-	const [departments, setDepartments] = useState<string[]>([])
-	const [error, setError] = useState<Error | null>(null)
-	const [isLoading, setIsLoading] = useState(true)
+	const { data, error, isLoading } = useQuery({
+		queryKey: queryKeys.searchableDepartments,
+		queryFn: fetchSearchableDepartments,
+	})
 
-	useEffect(() => {
-		let cancelled = false
-		setIsLoading(true)
-		setError(null)
-		fetchSearchableDepartments()
-			.then((rows) => {
-				if (cancelled) return
-				setDepartments(rows)
-				setIsLoading(false)
-			})
-			.catch((err) => {
-				if (cancelled) return
-				setError(err as Error)
-				setDepartments([])
-				setIsLoading(false)
-			})
-		return () => {
-			cancelled = true
-		}
-	}, [])
-
-	return { departments, error, isLoading }
+	return {
+		departments: data ?? [],
+		error: error as Error | null,
+		isLoading,
+	}
 }

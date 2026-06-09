@@ -7,7 +7,7 @@ interface ReviewSourceBadgeProps {
 export function ReviewSourceBadge({ source }: ReviewSourceBadgeProps) {
 	if (source === 'rmp') {
 		return (
-			<span className="inline-flex rounded bg-gt-navy/10 px-1.5 py-0.5 text-xs font-medium text-gt-navy dark:bg-gt-gray-matter dark:text-foreground">
+			<span className="inline-flex rounded bg-gt-navy px-1.5 py-0.5 text-xs font-medium text-gt-tech-gold">
 				Rate My Professors
 			</span>
 		)

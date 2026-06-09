@@ -1,5 +1,9 @@
 import { BannerSession } from './banner-session.ts'
-import { mapBannerSemester, snapTimeToFifteenMinutes } from './normalize.ts'
+import {
+	clampBannerSectionTimes,
+	mapBannerSemester,
+	parseBannerCourseNumber,
+} from './normalize.ts'
 import type { BannerSectionRow, BannerTerm } from './types.ts'
 
 export async function fetchBannerTerms(): Promise<BannerTerm[]> {
@@ -116,12 +120,12 @@ export async function fetchBannerSectionsForSubject(
 		if (!Array.isArray(batch) || batch.length === 0) break
 
 		for (const course of batch) {
-			rows.push(mapBannerCourse(course, termCode, subject))
+			const mapped = mapBannerCourse(course, termCode, subject)
+			if (mapped) rows.push(mapped)
 		}
 
-		const fetched = payload.sectionsFetchedCount ?? batch.length
-		pageOffset += fetched
-		if (fetched < pageMaxSize) break
+		pageOffset += batch.length
+		if (batch.length < pageMaxSize) break
 		if (pageOffset >= (payload.totalCount ?? 0)) break
 	}
 
@@ -132,7 +136,10 @@ function mapBannerCourse(
 	course: Record<string, unknown>,
 	termCode: string,
 	subject: string,
-): BannerSectionRow {
+): BannerSectionRow | null {
+	const courseNumber = parseBannerCourseNumber(course.courseNumber)
+	if (courseNumber == null) return null
+
 	const meetings = (course.meetingsFaculty ?? []) as Array<{
 		meetingTime?: Record<string, unknown>
 	}>
@@ -144,12 +151,17 @@ function mapBannerCourse(
 	const dayPattern = parseMeetingDays(meetingTime)
 	const startRaw = String(meetingTime.beginTime ?? '')
 	const endRaw = String(meetingTime.endTime ?? '')
+	const times = clampBannerSectionTimes(
+		startRaw ? formatBannerTime(startRaw) : '09:00:00',
+		endRaw ? formatBannerTime(endRaw) : '10:15:00',
+	)
+	if (!times) return null
 
 	return {
 		bannerSectionId: String(course.id ?? course.courseReferenceNumber),
 		bannerTermCode: termCode,
 		department: String(course.subject ?? subject),
-		courseNumber: Number(course.courseNumber),
+		courseNumber,
 		courseTitle: String(course.courseTitle ?? ''),
 		creditHours: Number(course.creditHours ?? course.creditHourLow ?? 3),
 		sectionCode: String(course.sequenceNumber ?? 'A'),
@@ -169,12 +181,8 @@ function mapBannerCourse(
 			? Number(meetingTime.hoursWeek)
 			: null,
 		dayPattern,
-		startTime: startRaw
-			? snapTimeToFifteenMinutes(formatBannerTime(startRaw))
-			: '09:00:00',
-		endTime: endRaw
-			? snapTimeToFifteenMinutes(formatBannerTime(endRaw))
-			: '10:15:00',
+		startTime: times.startTime,
+		endTime: times.endTime,
 		linkedBannerSectionId: course.linkIdentifier
 			? String(course.linkIdentifier)
 			: null,

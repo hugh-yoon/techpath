@@ -33,6 +33,8 @@ export interface RmpProfessorSummary {
 	rmpProfessorId: string
 	rmpNodeId?: string
 	name: string
+	firstName?: string
+	lastName?: string
 	department: string | null
 	quality: number
 	difficulty: number

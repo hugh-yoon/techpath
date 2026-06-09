@@ -3,7 +3,10 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import type { CourseReview, InstructorReview, ReviewSource, SectionReview } from '@/types'
-import { courseContextMatchesCourse } from '@/utils/course-context-match'
+import {
+	COURSE_REVIEW_MATCH_THRESHOLD,
+	scoreCourseContextMatch,
+} from '@/utils/matching/course-code'
 
 export function useCourseReviews(courseId: string | null) {
 	const [data, setData] = useState<CourseReview[]>([])
@@ -68,6 +71,7 @@ export function useInstructorReviews(
 			.from('instructor_reviews')
 			.select('*')
 			.eq('instructor_id', instructorId)
+			.order('scraped_at', { ascending: false, nullsFirst: false })
 			.order('id', { ascending: false })
 
 		if (source !== 'all') {
@@ -132,13 +136,21 @@ export function useCourseRmpReviews(
 				}
 				const matched = ((rows ?? []) as Array<InstructorReview & {
 					instructor?: { name: string } | Array<{ name: string }>
-				}>).filter((row) =>
-					courseContextMatchesCourse(
-						row.course_context,
-						department,
-						courseNumber,
-					),
-				)
+				}>)
+					.map((row) => ({
+						row,
+						match: scoreCourseContextMatch(
+							row.course_context,
+							department,
+							courseNumber,
+						),
+					}))
+					.filter(
+						({ match }) =>
+							match.confidence >= COURSE_REVIEW_MATCH_THRESHOLD,
+					)
+					.sort((a, b) => b.match.confidence - a.match.confidence)
+					.map(({ row }) => row)
 				setData(matched)
 				setIsLoading(false)
 			})

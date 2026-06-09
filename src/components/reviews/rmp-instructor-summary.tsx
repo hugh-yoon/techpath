@@ -1,14 +1,13 @@
 import type { Instructor } from '@/types'
+import { hasRmpProfile } from '@/utils/instructor-rmp'
 
 interface RmpInstructorSummaryProps {
 	instructor: Instructor
 }
 
+/** @deprecated Use InstructorProfilePanel for schedule + optional RMP display. */
 export function RmpInstructorSummary({ instructor }: RmpInstructorSummaryProps) {
-	const hasRmp = instructor.rmp_professor_id != null
-		|| instructor.rmp_quality != null
-
-	if (!hasRmp) return null
+	if (!hasRmpProfile(instructor)) return null
 
 	return (
 		<div

@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { PageHeader } from '@/components/ui/page-header'
 import { useCourseSearch } from '@/hooks/use-courses'
 import { useSearchableDepartments } from '@/hooks/use-searchable-departments'
-import { useInstructors } from '@/hooks/use-instructors'
+import { useSearchableInstructors } from '@/hooks/use-searchable-instructors'
 import { useSearchStore } from '@/stores/search-store'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -22,6 +22,11 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { formatDaysShort } from '@/utils/days'
 import { formatTimeDisplay } from '@/utils/time'
 import { withReturnTo } from '@/lib/return-navigation'
+import {
+	buildDashboardSearchParams,
+	parseDashboardSearchParams,
+} from '@/lib/course-search-url'
+import { InstructorRmpBadge } from '@/components/reviews'
 
 const RESULT_CARD_MIN_H = 'min-h-[13.5rem]'
 
@@ -183,10 +188,13 @@ function DashboardPagination({
 
 export default function DashboardPage() {
 	const pathname = usePathname()
+	const router = useRouter()
+	const searchParams = useSearchParams()
 	const { filters, setFilters } = useSearchStore()
 	const { departments, isLoading: departmentsLoading } = useSearchableDepartments()
-	const { data: instructors } = useInstructors()
+	const { instructors, isLoading: instructorsLoading } = useSearchableInstructors()
 	const [page, setPage] = useState(0)
+	const urlSynced = useRef(false)
 	const searchFilters = useMemo(
 		() => ({
 			department: filters.department || undefined,
@@ -200,6 +208,21 @@ export default function DashboardPage() {
 		limit: PAGE_SIZE,
 		offset: page * PAGE_SIZE,
 	})
+
+	useEffect(() => {
+		setFilters(parseDashboardSearchParams(searchParams))
+		urlSynced.current = true
+	}, [searchParams, setFilters])
+
+	useEffect(() => {
+		if (!urlSynced.current) return
+		const params = buildDashboardSearchParams(filters)
+		const nextQuery = params.toString()
+		const currentQuery = searchParams.toString()
+		if (nextQuery === currentQuery) return
+		const href = nextQuery ? `${pathname}?${nextQuery}` : pathname
+		router.replace(href, { scroll: false })
+	}, [filters, pathname, router, searchParams])
 
 	useEffect(() => {
 		setPage(0)
@@ -256,7 +279,7 @@ export default function DashboardPage() {
 					<Input
 						id="name"
 						type="text"
-						placeholder="Search by name"
+						placeholder="Name or number (e.g. 2340)"
 						className="w-64"
 						value={filters.course_name ?? ''}
 						onChange={(e) => setFilters({ course_name: e.target.value || undefined })}
@@ -267,9 +290,10 @@ export default function DashboardPage() {
 					<Select
 						value={filters.instructor_id ?? '__all__'}
 						onValueChange={(v) => setFilters({ instructor_id: v === '__all__' ? undefined : v })}
+						disabled={instructorsLoading}
 					>
 						<SelectTrigger id="instructor" className="w-[200px]">
-							<SelectValue placeholder="All" />
+							<SelectValue placeholder={instructorsLoading ? 'Loading…' : 'All'} />
 						</SelectTrigger>
 						<SelectContent>
 							<SelectItem value="__all__">All</SelectItem>
@@ -317,7 +341,9 @@ export default function DashboardPage() {
 										<ul className="space-y-1 text-xs text-gt-gray-matter dark:text-foreground-muted">
 											{course.sections.slice(0, 3).map((s) => (
 												<li key={s.id}>
-													{s.section_code} — {s.instructor?.name ?? 'TBA'} —{' '}
+													{s.section_code} — {s.instructor?.name ?? 'TBA'}
+													<InstructorRmpBadge instructor={s.instructor} />
+													{' '}—{' '}
 													{formatDaysShort(s.day_pattern)}{' '}
 													{formatTimeDisplay(s.start_time)}
 												</li>

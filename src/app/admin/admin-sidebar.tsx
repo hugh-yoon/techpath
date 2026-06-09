@@ -19,7 +19,7 @@ export function AdminSidebar() {
 	const pathname = usePathname()
 
 	return (
-		<aside className="w-56 shrink-0 border-r border-gt-pi-mile bg-gt-diploma p-4 dark:border-gt-gray-matter dark:bg-surface">
+		<aside className="sticky top-0 flex h-screen w-56 shrink-0 flex-col self-start overflow-y-auto border-r border-gt-pi-mile bg-gt-diploma p-4 dark:border-gt-gray-matter dark:bg-surface">
 			<Link
 				href="/"
 				className="mb-3 flex items-center rounded px-3 py-2 text-sm font-medium text-gt-navy hover:bg-gt-tech-gold/20 hover:text-gt-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"

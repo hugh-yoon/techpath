@@ -23,8 +23,25 @@ serve(async (req) => {
 	const supabase = createServiceClient()
 	const jobId = await startSyncJob(supabase, 'rmp_daily')
 
+	let options = {}
 	try {
-		const result = await runRmpSync(supabase)
+		const body = await req.json()
+		if (Array.isArray(body?.instructorIds)) {
+			options = {
+				instructorIds: body.instructorIds.filter(
+					(id: unknown) => typeof id === 'string' && id.length > 0,
+				),
+			}
+		}
+		if (typeof body?.batchSize === 'number') {
+			options = { ...options, batchSize: Math.max(1, body.batchSize) }
+		}
+	} catch {
+		options = {}
+	}
+
+	try {
+		const result = await runRmpSync(supabase, options)
 		await finishSyncJob(supabase, jobId, {
 			status: 'success',
 			recordsUpserted: result.reviewsUpserted + result.matchesLinked,

@@ -4,9 +4,9 @@ import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import {
 	applyActiveSectionTermFilter,
-	fetchActiveTermIds,
 	sectionMatchesDisplayTerms,
 } from '@/lib/active-term-ids'
+import { getCachedActiveTermIds } from '@/lib/active-term-cache'
 import type { Section, SectionWithRelations } from '@/types'
 import { parseDayPattern } from '@/utils/days'
 import { normalizeTime } from '@/utils/db'
@@ -44,7 +44,7 @@ export function useSectionsByCourse(courseId: string | null) {
 		const load = async () => {
 			let activeTermIds: string[] = []
 			try {
-				activeTermIds = await fetchActiveTermIds()
+				activeTermIds = await getCachedActiveTermIds()
 			} catch (e) {
 				if (!cancelled) {
 					setError(e as Error)
@@ -151,7 +151,7 @@ export function useSectionsByInstructor(instructorId: string | null) {
 		const load = async () => {
 			let activeTermIds: string[] = []
 			try {
-				activeTermIds = await fetchActiveTermIds()
+				activeTermIds = await getCachedActiveTermIds()
 			} catch (e) {
 				if (!cancelled) {
 					setError(e as Error)
