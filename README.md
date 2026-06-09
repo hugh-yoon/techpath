@@ -53,6 +53,16 @@ To populate the Supabase database with Georgia Tech catalog courses and syntheti
 
 Run the seed **once on empty tables**. To re-seed, truncate dependent tables (e.g. `schedule_sections`, `sections`, `courses`, `instructors`) in an order that respects foreign keys, then run the SQL again.
 
+### 4. Data ingestion (Banner + Rate My Professors)
+
+Scheduled sync jobs live in `supabase/functions/` and are documented in
+[`scripts/ingest/README.md`](scripts/ingest/README.md).
+
+| Cadence | Data | Source |
+|---------|------|--------|
+| **Monthly** | Course & section info (titles, CRNs, times, locations, schedule types) | GT Banner class search |
+| **Daily** | Teacher info (RMP ratings, difficulty, reviews, would-take-again) | Rate My Professors (GT) |
+
 **See PRD in RULES and System Architecture**
 
 - For project layout and overall site structure & features

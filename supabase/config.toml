@@ -1,0 +1,22 @@
+# TechPath Supabase local config
+# https://supabase.com/docs/guides/cli/config
+
+[project]
+id = "hgpsftfvtrntwjcnxocb"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+major_version = 15
+
+[functions.banner-sync]
+verify_jwt = false
+
+[functions.rmp-sync]
+verify_jwt = false
