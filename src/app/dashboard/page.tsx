@@ -1,14 +1,14 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { PageHeader } from '@/components/ui/page-header'
 import { useCourseSearch } from '@/hooks/use-courses'
+import { useSearchableDepartments } from '@/hooks/use-searchable-departments'
 import { useInstructors } from '@/hooks/use-instructors'
 import { useSearchStore } from '@/stores/search-store'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -18,7 +18,6 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '@/components/ui/select'
-import { DEPARTMENTS } from '@/utils/constants'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatDaysShort } from '@/utils/days'
 import { formatTimeDisplay } from '@/utils/time'
@@ -53,9 +52,139 @@ function DashboardResultsSkeleton() {
 
 const PAGE_SIZE = 20
 
+function DashboardPagination({
+	page,
+	totalCount,
+	pageSize,
+	onPageChange,
+}: {
+	page: number
+	totalCount: number
+	pageSize: number
+	onPageChange: (page: number) => void
+}) {
+	const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
+	const [jumpInput, setJumpInput] = useState(String(page + 1))
+
+	useEffect(() => {
+		setJumpInput(String(page + 1))
+	}, [page])
+
+	const clampPage = useCallback(
+		(next: number) => Math.min(Math.max(0, next), totalPages - 1),
+		[totalPages],
+	)
+
+	const handleJump = useCallback(() => {
+		const parsed = parseInt(jumpInput, 10)
+		if (Number.isNaN(parsed) || parsed < 1) return
+		onPageChange(clampPage(parsed - 1))
+	}, [clampPage, jumpInput, onPageChange])
+
+	const handleJumpKeyDown = useCallback(
+		(e: React.KeyboardEvent<HTMLInputElement>) => {
+			if (e.key === 'Enter') handleJump()
+		},
+		[handleJump],
+	)
+
+	const navButtonClass =
+		'rounded-lg border-2 border-gt-navy/20 px-3 py-2 text-sm font-medium text-gt-navy transition-colors hover:bg-gt-navy/10 disabled:opacity-50 dark:border-gt-gray-matter dark:text-foreground'
+
+	return (
+		<nav
+			className="mt-6 flex flex-wrap items-center gap-2"
+			aria-label="Search results pagination"
+		>
+			<button
+				type="button"
+				onClick={() => onPageChange(0)}
+				disabled={page === 0}
+				className={navButtonClass}
+				aria-label="First page"
+			>
+				First
+			</button>
+			<button
+				type="button"
+				onClick={() => onPageChange(clampPage(page - 10))}
+				disabled={page === 0}
+				className={navButtonClass}
+				aria-label="Go back 10 pages"
+			>
+				-10
+			</button>
+			<button
+				type="button"
+				onClick={() => onPageChange(clampPage(page - 1))}
+				disabled={page === 0}
+				className={navButtonClass}
+				aria-label="Previous page"
+			>
+				Prev
+			</button>
+			<div className="flex items-center gap-2">
+				<Label htmlFor="page-jump" className="sr-only">
+					Go to page
+				</Label>
+				<Input
+					id="page-jump"
+					type="number"
+					min={1}
+					max={totalPages}
+					value={jumpInput}
+					onChange={(e) => setJumpInput(e.target.value)}
+					onKeyDown={handleJumpKeyDown}
+					className="w-20"
+					aria-label="Page number"
+				/>
+				<button
+					type="button"
+					onClick={handleJump}
+					className={navButtonClass}
+					aria-label="Go to page"
+				>
+					Go
+				</button>
+			</div>
+			<span className="text-sm text-gt-gray-matter dark:text-foreground-muted">
+				Page {page + 1} of {totalPages} ({totalCount} courses)
+			</span>
+			<button
+				type="button"
+				onClick={() => onPageChange(clampPage(page + 1))}
+				disabled={page >= totalPages - 1}
+				className={navButtonClass}
+				aria-label="Next page"
+			>
+				Next
+			</button>
+			<button
+				type="button"
+				onClick={() => onPageChange(clampPage(page + 10))}
+				disabled={page >= totalPages - 1}
+				className={navButtonClass}
+				aria-label="Go forward 10 pages"
+			>
+				+10
+			</button>
+			<button
+				type="button"
+				onClick={() => onPageChange(totalPages - 1)}
+				disabled={page >= totalPages - 1}
+				className={navButtonClass}
+				aria-label="Last page"
+			>
+				Last
+			</button>
+		</nav>
+	)
+}
+
 export default function DashboardPage() {
 	const pathname = usePathname()
 	const { filters, setFilters } = useSearchStore()
+	const { departments, isLoading: departmentsLoading } = useSearchableDepartments()
 	const { data: instructors } = useInstructors()
 	const [page, setPage] = useState(0)
 	const searchFilters = useMemo(
@@ -67,12 +196,19 @@ export default function DashboardPage() {
 		}),
 		[filters.department, filters.course_number, filters.course_name, filters.instructor_id],
 	)
-	const { data: results, isLoading, error } = useCourseSearch(searchFilters, {
+	const { data: results, isLoading, error, totalCount } = useCourseSearch(searchFilters, {
 		limit: PAGE_SIZE,
 		offset: page * PAGE_SIZE,
 	})
-	const handlePrev = useCallback(() => setPage((p) => Math.max(0, p - 1)), [])
-	const handleNext = useCallback(() => setPage((p) => p + 1), [])
+
+	useEffect(() => {
+		setPage(0)
+	}, [
+		filters.department,
+		filters.course_number,
+		filters.course_name,
+		filters.instructor_id,
+	])
 
 	return (
 		<div className="min-h-screen bg-gt-white dark:bg-[var(--background)]">
@@ -89,13 +225,14 @@ export default function DashboardPage() {
 					<Select
 						value={filters.department ?? '__all__'}
 						onValueChange={(v) => setFilters({ department: v === '__all__' ? undefined : v })}
+						disabled={departmentsLoading}
 					>
-						<SelectTrigger id="dept" className="w-[120px]">
-							<SelectValue placeholder="All" />
+						<SelectTrigger id="dept" className="w-[140px]">
+							<SelectValue placeholder={departmentsLoading ? 'Loading…' : 'All'} />
 						</SelectTrigger>
 						<SelectContent>
 							<SelectItem value="__all__">All</SelectItem>
-							{DEPARTMENTS.map((d) => (
+							{departments.map((d) => (
 								<SelectItem key={d} value={d}>
 									{d}
 								</SelectItem>
@@ -203,33 +340,13 @@ export default function DashboardPage() {
 			{!isLoading && !error && results.length === 0 && (
 				<p className="mt-6 text-gt-gray-matter dark:text-foreground-muted">No courses match your filters.</p>
 			)}
-			{!isLoading && results.length > 0 && (
-				<nav
-					className="mt-6 flex items-center gap-4"
-					aria-label="Search results pagination"
-				>
-					<button
-						type="button"
-						onClick={handlePrev}
-						disabled={page === 0}
-						className="rounded-lg border-2 border-gt-navy/20 px-4 py-2 text-sm font-medium text-gt-navy transition-colors hover:bg-gt-navy/10 disabled:opacity-50 dark:border-gt-gray-matter dark:text-foreground"
-						aria-label="Previous page"
-					>
-						Previous
-					</button>
-					<span className="text-sm text-gt-gray-matter dark:text-foreground-muted">
-						Page {page + 1}
-					</span>
-					<button
-						type="button"
-						onClick={handleNext}
-						disabled={results.length < PAGE_SIZE}
-						className="rounded-lg border-2 border-gt-navy/20 px-4 py-2 text-sm font-medium text-gt-navy transition-colors hover:bg-gt-navy/10 disabled:opacity-50 dark:border-gt-gray-matter dark:text-foreground"
-						aria-label="Next page"
-					>
-						Next
-					</button>
-				</nav>
+			{!isLoading && totalCount > 0 && (
+				<DashboardPagination
+					page={page}
+					totalCount={totalCount}
+					pageSize={PAGE_SIZE}
+					onPageChange={setPage}
+				/>
 			)}
 			</div>
 		</div>

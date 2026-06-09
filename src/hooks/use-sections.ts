@@ -2,7 +2,11 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabaseClient'
-import { fetchActiveTermIds } from '@/lib/active-term-ids'
+import {
+	applyActiveSectionTermFilter,
+	fetchActiveTermIds,
+	sectionMatchesDisplayTerms,
+} from '@/lib/active-term-ids'
 import type { Section, SectionWithRelations } from '@/types'
 import { parseDayPattern } from '@/utils/days'
 import { normalizeTime } from '@/utils/db'
@@ -18,6 +22,8 @@ function mapSectionRow(row: Record<string, unknown>): Section {
 		end_time: normalizeTime(row.end_time as string),
 		location: (row.location as string) ?? null,
 		crn: row.crn as string,
+		term_id: (row.term_id as string) ?? null,
+		is_active: row.is_active as boolean | undefined,
 	}
 }
 
@@ -59,16 +65,24 @@ export function useSectionsByCourse(courseId: string | null) {
 				)
 				.eq('course_id', courseId)
 				.eq('is_active', true)
-			if (activeTermIds.length > 0) {
-				query = query.in('term_id', activeTermIds)
-			}
+			query = applyActiveSectionTermFilter(query, activeTermIds)
 			const { data: rows, error: e } = await query
 			if (cancelled) return
 			if (e) {
 				setError(e as Error)
 				setData([])
 			} else {
-				const list = (rows ?? []).map((r: Record<string, unknown>) => {
+				const list = (rows ?? [])
+					.filter((r) =>
+						sectionMatchesDisplayTerms(
+							{
+								is_active: r.is_active as boolean | null,
+								term_id: r.term_id as string | null,
+							},
+							activeTermIds,
+						)
+					)
+					.map((r: Record<string, unknown>) => {
 					const co = r.course as Record<string, unknown> | Record<string, unknown>[] | null
 					const inst = r.instructor as Record<string, unknown> | Record<string, unknown>[] | null
 					const course = Array.isArray(co) ? co[0] : co
@@ -158,16 +172,24 @@ export function useSectionsByInstructor(instructorId: string | null) {
 				)
 				.eq('instructor_id', instructorId)
 				.eq('is_active', true)
-			if (activeTermIds.length > 0) {
-				query = query.in('term_id', activeTermIds)
-			}
+			query = applyActiveSectionTermFilter(query, activeTermIds)
 			const { data: rows, error: e } = await query
 			if (cancelled) return
 			if (e) {
 				setError(e as Error)
 				setData([])
 			} else {
-				const list = (rows ?? []).map((r: Record<string, unknown>) => {
+				const list = (rows ?? [])
+					.filter((r) =>
+						sectionMatchesDisplayTerms(
+							{
+								is_active: r.is_active as boolean | null,
+								term_id: r.term_id as string | null,
+							},
+							activeTermIds,
+						)
+					)
+					.map((r: Record<string, unknown>) => {
 					const co = r.course as Record<string, unknown> | Record<string, unknown>[] | null
 					const inst = r.instructor as Record<string, unknown> | Record<string, unknown>[] | null
 					const course = Array.isArray(co) ? co[0] : co

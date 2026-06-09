@@ -2,17 +2,17 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabaseClient'
-import { fetchActiveTermIds } from '@/lib/active-term-ids'
+import {
+	fetchActiveTermIds,
+	sectionMatchesDisplayTerms,
+} from '@/lib/active-term-ids'
+import { fetchSearchableCourseIds } from '@/lib/searchable-courses'
+import type { CourseSearchFilters } from '@/lib/searchable-courses'
 import type { Course, SectionWithRelations } from '@/types'
 import { parseDayPattern } from '@/utils/days'
 import { normalizeTime } from '@/utils/db'
 
-export interface CourseSearchFilters {
-	department?: string
-	course_number?: string
-	course_name?: string
-	instructor_id?: string
-}
+export type { CourseSearchFilters } from '@/lib/searchable-courses'
 
 interface CourseWithSections extends Course {
 	sections?: SectionWithRelations[]
@@ -30,6 +30,8 @@ function mapSection(row: Record<string, unknown>): SectionWithRelations {
 		end_time: normalizeTime(row.end_time as string),
 		location: (row.location as string) ?? null,
 		crn: row.crn as string,
+		term_id: (row.term_id as string) ?? null,
+		is_active: row.is_active as boolean | undefined,
 		course: undefined,
 		instructor: row.instructor
 			? {
@@ -41,6 +43,43 @@ function mapSection(row: Record<string, unknown>): SectionWithRelations {
 				}
 			: null,
 	}
+}
+
+const SECTION_EMBED = `
+	id,
+	course_id,
+	instructor_id,
+	section_code,
+	day_pattern,
+	start_time,
+	end_time,
+	location,
+	crn,
+	term_id,
+	is_active,
+	instructor:instructors(id,name,department,rating,teaching_style)
+`
+
+function mapCourseRows(
+	rows: Record<string, unknown>[],
+	activeTermIds: string[],
+): CourseWithSections[] {
+	return rows
+		.map((row) => {
+			const sectionsRaw = row.sections as Record<string, unknown>[] | null
+			const sections = (sectionsRaw ?? [])
+				.map((s) => {
+					const inv = s.instructor as
+						| Record<string, unknown>
+						| Record<string, unknown>[]
+						| null
+					const instructorObj = Array.isArray(inv) ? inv[0] : inv
+					return mapSection({ ...s, instructor: instructorObj ?? undefined })
+				})
+				.filter((s) => sectionMatchesDisplayTerms(s, activeTermIds))
+			return { ...(row as unknown as Course), sections }
+		})
+		.filter((course) => (course.sections?.length ?? 0) > 0)
 }
 
 export function useCourses() {
@@ -132,6 +171,7 @@ export function useCourseSearch(
 	options?: { limit?: number; offset?: number },
 ) {
 	const [data, setData] = useState<CourseWithSections[]>([])
+	const [totalCount, setTotalCount] = useState(0)
 	const [error, setError] = useState<Error | null>(null)
 	const [isLoading, setIsLoading] = useState(true)
 	const limit = options?.limit ?? 50
@@ -149,93 +189,52 @@ export function useCourseSearch(
 				if (!cancelled) {
 					setError(new Error('Failed to load active terms'))
 					setData([])
+					setTotalCount(0)
 					setIsLoading(false)
 				}
 				return
 			}
 
-			let courseIds: string[] | null = null
-			if (filters.instructor_id?.trim()) {
-				let sectionQuery = supabase
-					.from('sections')
-					.select('course_id')
-					.eq('instructor_id', filters.instructor_id.trim())
-					.eq('is_active', true)
-				if (activeTermIds.length > 0) {
-					sectionQuery = sectionQuery.in('term_id', activeTermIds)
-				}
-				const { data: sectionRows } = await sectionQuery
-				courseIds = [...new Set((sectionRows ?? []).map((r) => r.course_id))]
-				if (courseIds.length === 0) {
-					if (!cancelled) {
-						setData([])
-						setIsLoading(false)
-					}
-					return
-				}
-			}
-			let query = supabase
-				.from('courses')
-				.select(
-					`
-					*,
-					sections!inner(
-						id,
-						course_id,
-						instructor_id,
-						section_code,
-						day_pattern,
-						start_time,
-						end_time,
-						location,
-						crn,
-						term_id,
-						is_active,
-						instructor:instructors(id,name,department,rating,teaching_style)
-					)
-				`,
+			let searchableIds: string[] = []
+			try {
+				searchableIds = await fetchSearchableCourseIds(
+					filters,
+					activeTermIds,
 				)
+			} catch (e) {
+				if (!cancelled) {
+					setError(e as Error)
+					setData([])
+					setTotalCount(0)
+					setIsLoading(false)
+				}
+				return
+			}
+
+			if (!cancelled) setTotalCount(searchableIds.length)
+
+			const pageIds = searchableIds.slice(offset, offset + limit)
+			if (pageIds.length === 0) {
+				if (!cancelled) {
+					setData([])
+					setIsLoading(false)
+				}
+				return
+			}
+
+			const { data: rows, error: e } = await supabase
+				.from('courses')
+				.select(`*, sections(${SECTION_EMBED})`)
+				.in('id', pageIds)
 				.order('department')
 				.order('course_number')
-				.range(offset, offset + limit - 1)
-			if (filters.department?.trim()) {
-				query = query.eq('department', filters.department.trim())
-			}
-			if (filters.course_number?.trim()) {
-				const num = parseInt(filters.course_number.trim(), 10)
-				if (!Number.isNaN(num)) query = query.eq('course_number', num)
-			}
-			if (filters.course_name?.trim()) {
-				query = query.ilike('course_name', `%${filters.course_name.trim()}%`)
-			}
-			if (courseIds) {
-				query = query.in('id', courseIds)
-			}
-			if (activeTermIds.length > 0) {
-				query = query
-					.eq('sections.is_active', true)
-					.in('sections.term_id', activeTermIds)
-			} else {
-				query = query.eq('sections.is_active', true)
-			}
-			const { data: rows, error: e } = await query
+
 			if (cancelled) return
 			if (e) {
 				setError(e as Error)
 				setData([])
 			} else {
-				const mapped = (rows ?? []).map((row: Record<string, unknown>) => {
-					const sectionsRaw = row.sections as Record<string, unknown>[] | null
-					return {
-						...row,
-						sections: sectionsRaw?.map((s) => {
-							const inv = s.instructor as Record<string, unknown> | Record<string, unknown>[] | null
-							const instructorObj = Array.isArray(inv) ? inv[0] : inv
-							return mapSection({ ...s, instructor: instructorObj ?? undefined })
-						}),
-					}
-				}) as CourseWithSections[]
-				setData(mapped)
+				setData(mapCourseRows(rows ?? [], activeTermIds))
 			}
 			setIsLoading(false)
 		}
@@ -252,5 +251,5 @@ export function useCourseSearch(
 		limit,
 	])
 
-	return { data, error, isLoading }
+	return { data, error, isLoading, totalCount }
 }
