@@ -166,3 +166,15 @@ export interface SectionReview {
 	difficulty: number
 	comment: string | null
 }
+
+export interface SyncJob {
+	id: string
+	job_type: 'banner_full' | 'rmp_daily'
+	status: 'running' | 'success' | 'failed'
+	started_at: string
+	completed_at: string | null
+	records_upserted: number
+	records_failed: number
+	error_summary: string | null
+	metadata: Record<string, unknown>
+}

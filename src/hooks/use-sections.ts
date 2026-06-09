@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabaseClient'
+import { fetchActiveTermIds } from '@/lib/active-term-ids'
 import type { Section, SectionWithRelations } from '@/types'
 import { parseDayPattern } from '@/utils/days'
 import { normalizeTime } from '@/utils/db'
@@ -34,37 +35,55 @@ export function useSectionsByCourse(courseId: string | null) {
 		let cancelled = false
 		setIsLoading(true)
 		setError(null)
-		supabase
-			.from('sections')
-			.select(
-				`
+		const load = async () => {
+			let activeTermIds: string[] = []
+			try {
+				activeTermIds = await fetchActiveTermIds()
+			} catch (e) {
+				if (!cancelled) {
+					setError(e as Error)
+					setData([])
+					setIsLoading(false)
+				}
+				return
+			}
+
+			let query = supabase
+				.from('sections')
+				.select(
+					`
 				*,
 				course:courses(*),
 				instructor:instructors(*)
 			`,
-			)
-			.eq('course_id', courseId)
-			.then(({ data: rows, error: e }) => {
-				if (cancelled) return
-				if (e) {
-					setError(e as Error)
-					setData([])
-				} else {
-					const list = (rows ?? []).map((r: Record<string, unknown>) => {
-						const co = r.course as Record<string, unknown> | Record<string, unknown>[] | null
-						const inst = r.instructor as Record<string, unknown> | Record<string, unknown>[] | null
-						const course = Array.isArray(co) ? co[0] : co
-						const instructor = Array.isArray(inst) ? inst[0] : inst
-						return {
-							...mapSectionRow(r),
-							course: course as SectionWithRelations['course'],
-							instructor: instructor as SectionWithRelations['instructor'],
-						}
-					})
-					setData(list)
-				}
-				setIsLoading(false)
-			})
+				)
+				.eq('course_id', courseId)
+				.eq('is_active', true)
+			if (activeTermIds.length > 0) {
+				query = query.in('term_id', activeTermIds)
+			}
+			const { data: rows, error: e } = await query
+			if (cancelled) return
+			if (e) {
+				setError(e as Error)
+				setData([])
+			} else {
+				const list = (rows ?? []).map((r: Record<string, unknown>) => {
+					const co = r.course as Record<string, unknown> | Record<string, unknown>[] | null
+					const inst = r.instructor as Record<string, unknown> | Record<string, unknown>[] | null
+					const course = Array.isArray(co) ? co[0] : co
+					const instructor = Array.isArray(inst) ? inst[0] : inst
+					return {
+						...mapSectionRow(r),
+						course: course as SectionWithRelations['course'],
+						instructor: instructor as SectionWithRelations['instructor'],
+					}
+				})
+				setData(list)
+			}
+			setIsLoading(false)
+		}
+		load()
 		return () => {
 			cancelled = true
 		}
@@ -115,37 +134,55 @@ export function useSectionsByInstructor(instructorId: string | null) {
 		let cancelled = false
 		setIsLoading(true)
 		setError(null)
-		supabase
-			.from('sections')
-			.select(
-				`
+		const load = async () => {
+			let activeTermIds: string[] = []
+			try {
+				activeTermIds = await fetchActiveTermIds()
+			} catch (e) {
+				if (!cancelled) {
+					setError(e as Error)
+					setData([])
+					setIsLoading(false)
+				}
+				return
+			}
+
+			let query = supabase
+				.from('sections')
+				.select(
+					`
 				*,
 				course:courses(*),
 				instructor:instructors(*)
 			`,
-			)
-			.eq('instructor_id', instructorId)
-			.then(({ data: rows, error: e }) => {
-				if (cancelled) return
-				if (e) {
-					setError(e as Error)
-					setData([])
-				} else {
-					const list = (rows ?? []).map((r: Record<string, unknown>) => {
-						const co = r.course as Record<string, unknown> | Record<string, unknown>[] | null
-						const inst = r.instructor as Record<string, unknown> | Record<string, unknown>[] | null
-						const course = Array.isArray(co) ? co[0] : co
-						const instructor = Array.isArray(inst) ? inst[0] : inst
-						return {
-							...mapSectionRow(r),
-							course: course as SectionWithRelations['course'],
-							instructor: instructor as SectionWithRelations['instructor'],
-						}
-					})
-					setData(list)
-				}
-				setIsLoading(false)
-			})
+				)
+				.eq('instructor_id', instructorId)
+				.eq('is_active', true)
+			if (activeTermIds.length > 0) {
+				query = query.in('term_id', activeTermIds)
+			}
+			const { data: rows, error: e } = await query
+			if (cancelled) return
+			if (e) {
+				setError(e as Error)
+				setData([])
+			} else {
+				const list = (rows ?? []).map((r: Record<string, unknown>) => {
+					const co = r.course as Record<string, unknown> | Record<string, unknown>[] | null
+					const inst = r.instructor as Record<string, unknown> | Record<string, unknown>[] | null
+					const course = Array.isArray(co) ? co[0] : co
+					const instructor = Array.isArray(inst) ? inst[0] : inst
+					return {
+						...mapSectionRow(r),
+						course: course as SectionWithRelations['course'],
+						instructor: instructor as SectionWithRelations['instructor'],
+					}
+				})
+				setData(list)
+			}
+			setIsLoading(false)
+		}
+		load()
 		return () => {
 			cancelled = true
 		}

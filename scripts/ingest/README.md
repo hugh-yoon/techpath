@@ -103,5 +103,5 @@ GraphQL `POST https://www.ratemyprofessors.com/graphql` with
 
 ## Remaining steps
 
-1. Admin view for `sync_jobs` run history.
-2. Term-aware section filtering in student search (active Banner terms only).
+1. Term-aware section filtering in student search (active Banner terms only). ✓
+2. Admin view for `sync_jobs` run history. ✓

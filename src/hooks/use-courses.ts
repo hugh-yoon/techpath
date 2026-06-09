@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabaseClient'
+import { fetchActiveTermIds } from '@/lib/active-term-ids'
 import type { Course, SectionWithRelations } from '@/types'
 import { parseDayPattern } from '@/utils/days'
 import { normalizeTime } from '@/utils/db'
@@ -141,12 +142,29 @@ export function useCourseSearch(
 		setIsLoading(true)
 		setError(null)
 		const run = async () => {
+			let activeTermIds: string[] = []
+			try {
+				activeTermIds = await fetchActiveTermIds()
+			} catch {
+				if (!cancelled) {
+					setError(new Error('Failed to load active terms'))
+					setData([])
+					setIsLoading(false)
+				}
+				return
+			}
+
 			let courseIds: string[] | null = null
 			if (filters.instructor_id?.trim()) {
-				const { data: sectionRows } = await supabase
+				let sectionQuery = supabase
 					.from('sections')
 					.select('course_id')
 					.eq('instructor_id', filters.instructor_id.trim())
+					.eq('is_active', true)
+				if (activeTermIds.length > 0) {
+					sectionQuery = sectionQuery.in('term_id', activeTermIds)
+				}
+				const { data: sectionRows } = await sectionQuery
 				courseIds = [...new Set((sectionRows ?? []).map((r) => r.course_id))]
 				if (courseIds.length === 0) {
 					if (!cancelled) {
@@ -161,7 +179,7 @@ export function useCourseSearch(
 				.select(
 					`
 					*,
-					sections(
+					sections!inner(
 						id,
 						course_id,
 						instructor_id,
@@ -171,6 +189,8 @@ export function useCourseSearch(
 						end_time,
 						location,
 						crn,
+						term_id,
+						is_active,
 						instructor:instructors(id,name,department,rating,teaching_style)
 					)
 				`,
@@ -190,6 +210,13 @@ export function useCourseSearch(
 			}
 			if (courseIds) {
 				query = query.in('id', courseIds)
+			}
+			if (activeTermIds.length > 0) {
+				query = query
+					.eq('sections.is_active', true)
+					.in('sections.term_id', activeTermIds)
+			} else {
+				query = query.eq('sections.is_active', true)
 			}
 			const { data: rows, error: e } = await query
 			if (cancelled) return

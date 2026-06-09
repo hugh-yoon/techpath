@@ -12,6 +12,7 @@ const NAV_ITEMS = [
 	{ href: '/admin/prerequisites', label: 'Prerequisites' },
 	{ href: '/admin/reviews', label: 'Reviews' },
 	{ href: '/admin/rmp-matches', label: 'RMP Matches' },
+	{ href: '/admin/sync-jobs', label: 'Sync Jobs' },
 ] as const
 
 export function AdminSidebar() {
