@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useParams, usePathname, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { PageHeader } from '@/components/ui/page-header'
-import { useCourse, useCourseReviews } from '@/hooks'
+import { useCourse, useCourseReviews, useCourseRmpReviews } from '@/hooks'
+import { InstructorReviewCard } from '@/components/reviews'
 import { useSectionsByCourse } from '@/hooks/use-sections'
 import { AddToScheduleDialog } from '@/components/course/add-to-schedule-dialog'
 import { CourseReviewDialog } from '@/components/course/course-review-dialog'
@@ -32,6 +33,24 @@ export default function CourseDetailPage() {
 	const { data: sections, isLoading: sectionsLoading } = useSectionsByCourse(id)
 	const { data: courseReviews, isLoading: courseReviewsLoading, refetch: refetchCourseReviews } =
 		useCourseReviews(id)
+	const instructorIds = useMemo(
+		() => [...new Set((sections ?? []).map((s) => s.instructor_id).filter(Boolean))],
+		[sections],
+	)
+	const instructorNames = useMemo(() => {
+		const map = new Map<string, string>()
+		for (const s of sections ?? []) {
+			if (s.instructor_id && s.instructor?.name) {
+				map.set(s.instructor_id, s.instructor.name)
+			}
+		}
+		return map
+	}, [sections])
+	const { data: courseRmpReviews, isLoading: courseRmpLoading } = useCourseRmpReviews(
+		course?.department,
+		course?.course_number,
+		instructorIds,
+	)
 	const [courseReviewDialogOpen, setCourseReviewDialogOpen] = useState(false)
 	const [addToScheduleSectionId, setAddToScheduleSectionId] = useState<string | null>(null)
 
@@ -181,10 +200,46 @@ export default function CourseDetailPage() {
 				)}
 			</section>
 
+			{(courseRmpLoading || courseRmpReviews.length > 0) && (
+				<section
+					className="mt-8 rounded-xl border-2 border-gt-navy/10 bg-gt-diploma p-6 dark:border-gt-gray-matter dark:bg-surface"
+					aria-labelledby="rmp-course-reviews-heading"
+				>
+					<h2
+						id="rmp-course-reviews-heading"
+						className="text-lg font-semibold"
+					>
+						Professor reviews for this course
+					</h2>
+					<p className="mt-1 text-sm text-gt-gray-matter dark:text-foreground-muted">
+						From Rate My Professors — reviews tagged with{' '}
+						{course.department} {course.course_number}. These may
+						also appear on instructor profiles.
+					</p>
+					{courseRmpLoading ? (
+						<p className="mt-3 text-sm text-gt-gray-matter">
+							Loading professor reviews…
+						</p>
+					) : (
+						<ul className="mt-3 space-y-2">
+							{courseRmpReviews.map((r) => (
+								<InstructorReviewCard
+									key={r.id}
+									review={r}
+									instructorName={
+										instructorNames.get(r.instructor_id) ?? null
+									}
+								/>
+							))}
+						</ul>
+					)}
+				</section>
+			)}
+
 			<section className="mt-8 rounded-xl border-2 border-gt-navy/10 bg-gt-diploma p-6 dark:border-gt-gray-matter dark:bg-surface" aria-labelledby="reviews-heading">
 				<div className="flex flex-wrap items-center justify-between gap-2">
 					<h2 id="reviews-heading" className="text-lg font-semibold">
-						Reviews
+						Student course reviews
 					</h2>
 					<Button
 						size="sm"

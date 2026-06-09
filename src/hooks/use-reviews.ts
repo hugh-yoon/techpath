@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { supabase } from '@/lib/supabaseClient'
-import type { CourseReview, InstructorReview, SectionReview } from '@/types'
+import type { CourseReview, InstructorReview, ReviewSource, SectionReview } from '@/types'
+import { courseContextMatchesCourse } from '@/utils/course-context-match'
 
 export function useCourseReviews(courseId: string | null) {
 	const [data, setData] = useState<CourseReview[]>([])
@@ -40,7 +41,15 @@ export function useCourseReviews(courseId: string | null) {
 	return { data, error, isLoading, refetch: fetchReviews }
 }
 
-export function useInstructorReviews(instructorId: string | null) {
+interface UseInstructorReviewsOptions {
+	source?: ReviewSource | 'all'
+}
+
+export function useInstructorReviews(
+	instructorId: string | null,
+	options: UseInstructorReviewsOptions = {},
+) {
+	const { source = 'all' } = options
 	const [data, setData] = useState<InstructorReview[]>([])
 	const [error, setError] = useState<Error | null>(null)
 	const [isLoading, setIsLoading] = useState(true)
@@ -54,25 +63,90 @@ export function useInstructorReviews(instructorId: string | null) {
 		let cancelled = false
 		setIsLoading(true)
 		setError(null)
-		supabase
+
+		let query = supabase
 			.from('instructor_reviews')
 			.select('*')
 			.eq('instructor_id', instructorId)
 			.order('id', { ascending: false })
+
+		if (source !== 'all') {
+			query = query.eq('source', source)
+		}
+
+		query.then(({ data: rows, error: e }) => {
+			if (cancelled) return
+			if (e) {
+				setError(e as Error)
+				setData([])
+			} else {
+				setData((rows ?? []) as InstructorReview[])
+			}
+			setIsLoading(false)
+		})
+		return () => {
+			cancelled = true
+		}
+	}, [instructorId, source])
+
+	return { data, error, isLoading }
+}
+
+export function useCourseRmpReviews(
+	department: string | undefined,
+	courseNumber: number | undefined,
+	instructorIds: string[],
+) {
+	const [data, setData] = useState<InstructorReview[]>([])
+	const [error, setError] = useState<Error | null>(null)
+	const [isLoading, setIsLoading] = useState(true)
+
+	const instructorKey = useMemo(
+		() => [...new Set(instructorIds)].sort().join(','),
+		[instructorIds],
+	)
+
+	useEffect(() => {
+		if (!department || courseNumber == null || instructorIds.length === 0) {
+			setData([])
+			setIsLoading(false)
+			return
+		}
+		let cancelled = false
+		setIsLoading(true)
+		setError(null)
+
+		supabase
+			.from('instructor_reviews')
+			.select('*, instructor:instructors(name)')
+			.eq('source', 'rmp')
+			.in('instructor_id', instructorIds)
+			.order('scraped_at', { ascending: false })
 			.then(({ data: rows, error: e }) => {
 				if (cancelled) return
 				if (e) {
 					setError(e as Error)
 					setData([])
-				} else {
-					setData((rows ?? []) as InstructorReview[])
+					setIsLoading(false)
+					return
 				}
+				const matched = ((rows ?? []) as Array<InstructorReview & {
+					instructor?: { name: string } | Array<{ name: string }>
+				}>).filter((row) =>
+					courseContextMatchesCourse(
+						row.course_context,
+						department,
+						courseNumber,
+					),
+				)
+				setData(matched)
 				setIsLoading(false)
 			})
+
 		return () => {
 			cancelled = true
 		}
-	}, [instructorId])
+	}, [department, courseNumber, instructorKey, instructorIds.length])
 
 	return { data, error, isLoading }
 }
@@ -175,6 +249,7 @@ export function useCreateInstructorReview(instructorId: string) {
 			setError(null)
 			const { error: e } = await supabase.from('instructor_reviews').insert({
 				instructor_id: instructorId,
+				source: 'student',
 				rating,
 				comment: comment || null,
 			})

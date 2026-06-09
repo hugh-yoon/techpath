@@ -77,7 +77,7 @@ export default function AdminRmpMatchesPage() {
 
 	return (
 		<div className="space-y-6">
-			<BackLink href="/admin" label="Admin" />
+			<BackLink href="/admin">Admin</BackLink>
 			<div>
 				<h1 className="text-2xl font-bold text-gt-navy">RMP Matches</h1>
 				<p className="mt-1 text-sm text-gt-gray-matter">
