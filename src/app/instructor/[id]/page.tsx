@@ -30,6 +30,7 @@ import {
 	withReturnTo,
 } from '@/lib/return-navigation'
 import { buildRmpProfessorUrl } from '@/utils/instructor-rmp'
+import { useOpenTabs } from '@/context/open-tabs-provider'
 
 const RMP_REVIEW_PAGE_SIZE = 10
 
@@ -42,6 +43,7 @@ export default function InstructorDetailPage() {
 	const backLabel = getReturnNavLabel(parentPath)
 	const { data: instructor, error: instructorError, isLoading: instructorLoading } =
 		useInstructor(id)
+	const { updateTabLabel } = useOpenTabs()
 	const { data: sections, isLoading: sectionsLoading } = useSectionsByInstructor(id)
 	const { data: studentReviews, isLoading: studentReviewsLoading } =
 		useInstructorReviews(id, { source: 'student' })
@@ -67,6 +69,11 @@ export default function InstructorDetailPage() {
 	useEffect(() => {
 		setRmpPage(0)
 	}, [rmpRatingFilter])
+
+	useEffect(() => {
+		if (!instructor?.name || !pathname) return
+		updateTabLabel(pathname, instructor.name)
+	}, [instructor?.name, pathname, updateTabLabel])
 
 	const subtitle = useMemo(() => {
 		const parts = [`Department: ${instructor?.department ?? ''}`]

@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useParams, usePathname, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
@@ -21,6 +21,7 @@ import {
 	getReturnPathFromSearchParams,
 	withReturnTo,
 } from '@/lib/return-navigation'
+import { useOpenTabs } from '@/context/open-tabs-provider'
 
 export default function CourseDetailPage() {
 	const params = useParams()
@@ -30,6 +31,7 @@ export default function CourseDetailPage() {
 	const parentPath = getReturnPathFromSearchParams(searchParams, '/dashboard')
 	const backLabel = getReturnNavLabel(parentPath)
 	const { data: course, error: courseError, isLoading: courseLoading } = useCourse(id)
+	const { updateTabLabel } = useOpenTabs()
 	const { data: sections, isLoading: sectionsLoading } = useSectionsByCourse(id)
 	const { data: courseReviews, isLoading: courseReviewsLoading, refetch: refetchCourseReviews } =
 		useCourseReviews(id)
@@ -53,6 +55,14 @@ export default function CourseDetailPage() {
 	)
 	const [courseReviewDialogOpen, setCourseReviewDialogOpen] = useState(false)
 	const [addToScheduleSectionId, setAddToScheduleSectionId] = useState<string | null>(null)
+
+	useEffect(() => {
+		if (!course || !pathname) return
+		updateTabLabel(
+			pathname,
+			`${course.department} ${course.course_number}`,
+		)
+	}, [course, pathname, updateTabLabel])
 
 	if (courseLoading || !id) {
 		return (
