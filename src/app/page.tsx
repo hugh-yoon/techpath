@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { useAuth } from '@/context/auth-provider'
 import { OpenInNewTabButton } from '@/components/tabs/open-in-new-tab-button'
+import { cn } from '@/lib/utils'
 
 const container = {
 	hidden: { opacity: 0 },
@@ -18,8 +19,84 @@ const item = {
 	show: { opacity: 1, y: 0 },
 }
 
+/** Fixed size for every home nav card (matches tallest content). */
+const HOME_CARD_HEIGHT = 'h-[11rem]'
+const HOME_CARD_WIDTH = 'w-full'
+const HOME_CARD_COLUMN_WIDTH = 'sm:w-[calc((100%-1rem)/2)]'
+
+const CARD_LINK_CLASS = cn(
+	'flex flex-col rounded-xl border-2 p-6 text-left shadow-sm transition-colors',
+	'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2',
+	HOME_CARD_HEIGHT,
+	HOME_CARD_WIDTH,
+)
+
+interface HomeNavCardProps {
+	href: string
+	title: string
+	description: string
+	newTabLabel: string
+	className?: string
+	titleClassName?: string
+	centerOnBottomRow?: boolean
+}
+
+function HomeNavCard({
+	href,
+	title,
+	description,
+	newTabLabel,
+	className,
+	titleClassName,
+	centerOnBottomRow = false,
+}: HomeNavCardProps) {
+	return (
+		<motion.div
+			variants={item}
+			className={cn(
+				centerOnBottomRow
+					? cn(
+							'sm:col-span-2 flex justify-center',
+							HOME_CARD_HEIGHT,
+							HOME_CARD_WIDTH,
+						)
+					: cn(HOME_CARD_HEIGHT, HOME_CARD_WIDTH),
+			)}
+		>
+			<div
+				className={cn(
+					'relative',
+					HOME_CARD_HEIGHT,
+					HOME_CARD_WIDTH,
+					centerOnBottomRow && HOME_CARD_COLUMN_WIDTH,
+				)}
+			>
+				<OpenInNewTabButton
+					href={href}
+					newTabLabel={newTabLabel}
+					className="absolute top-3 right-3 z-10"
+				/>
+				<Link href={href} className={cn(CARD_LINK_CLASS, className)}>
+					<span
+						className={cn(
+							'shrink-0 text-lg font-semibold text-gt-navy',
+							titleClassName,
+						)}
+					>
+						{title}
+					</span>
+					<span className="mt-2 line-clamp-3 text-sm leading-snug text-gt-gray-matter">
+						{description}
+					</span>
+				</Link>
+			</div>
+		</motion.div>
+	)
+}
+
 export default function Home() {
 	const { isAdmin, isAuthenticated } = useAuth()
+	const centerCareerPlanner = !isAdmin
 
 	return (
 		<div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-gt-white p-8">
@@ -40,94 +117,70 @@ export default function Home() {
 				Georgia Tech academic intelligence platform for course planning and career paths
 			</motion.p>
 			<motion.nav
-				className="mt-8 grid max-w-3xl grid-cols-1 gap-4 sm:grid-cols-2"
+				className="mt-8 grid w-full max-w-3xl grid-cols-1 gap-4 sm:auto-rows-[11rem] sm:grid-cols-2"
 				aria-label="Main"
 				variants={container}
 				initial="hidden"
 				animate="show"
 			>
-				<motion.div variants={item} className="relative">
-				<OpenInNewTabButton
+				<HomeNavCard
 					href="/discovery"
 					newTabLabel="Discovery Deck"
-					className="absolute top-3 right-3 z-10"
-				/>
-				<Link
-					href="/discovery"
-					className="flex flex-col rounded-xl border-2 border-gt-tech-gold bg-gradient-to-br from-gt-white to-gt-diploma p-6 text-left shadow-sm transition-colors hover:border-gt-tech-medium-gold hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
-				>
-					<span className="text-lg font-semibold text-gt-navy">✨ Discovery Deck</span>
-					<span className="mt-1 text-sm text-gt-gray-matter">
-						{isAuthenticated
+					title="✨ Discovery Deck"
+					description={
+						isAuthenticated
 							? 'Swipe through courses to find your next class'
-							: 'Sign in required — swipe through courses to find your next class'}
-					</span>
-				</Link>
-				</motion.div>
-				<motion.div variants={item} className="relative">
-				<OpenInNewTabButton
+							: 'Sign in required — swipe through courses to find your next class'
+					}
+					className="border-gt-tech-gold bg-gradient-to-br from-gt-white to-gt-diploma hover:border-gt-tech-medium-gold hover:shadow-md"
+				/>
+				<HomeNavCard
 					href="/dashboard"
 					newTabLabel="Course Search"
-					className="absolute top-3 right-3 z-10"
+					title="Course Search"
+					description="Find courses and sections"
+					className="border-gt-pi-mile bg-gt-white hover:border-gt-tech-gold hover:bg-gt-diploma"
 				/>
-				<Link
-					href="/dashboard"
-					className="flex flex-col rounded-xl border-2 border-gt-pi-mile bg-gt-white p-6 text-left shadow-sm transition-colors hover:border-gt-tech-gold hover:bg-gt-diploma focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
-				>
-					<span className="text-lg font-semibold text-gt-navy">Course Search</span>
-					<span className="mt-1 text-sm text-gt-gray-matter">Find courses and sections</span>
-				</Link>
-				</motion.div>
-				<motion.div variants={item} className="relative">
-				<OpenInNewTabButton
+				<HomeNavCard
 					href="/schedule"
 					newTabLabel="Schedule Builder"
-					className="absolute top-3 right-3 z-10"
+					title="Schedule Builder"
+					description="Build semester schedules"
+					className="border-gt-pi-mile bg-gt-white hover:border-gt-tech-gold hover:bg-gt-diploma"
 				/>
-				<Link
-					href="/schedule"
-					className="flex flex-col rounded-xl border-2 border-gt-pi-mile bg-gt-white p-6 text-left shadow-sm transition-colors hover:border-gt-tech-gold hover:bg-gt-diploma focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
-				>
-					<span className="text-lg font-semibold text-gt-navy">Schedule Builder</span>
-					<span className="mt-1 text-sm text-gt-gray-matter">Build semester schedules</span>
-				</Link>
-				</motion.div>
-				<motion.div variants={item} className="relative">
-				<OpenInNewTabButton
+				<HomeNavCard
 					href="/path-builder"
 					newTabLabel="Path Builder"
-					className="absolute top-3 right-3 z-10"
+					title="🛣️ Path Builder"
+					description="Visualize your learning journey"
+					className="border-gt-navy/20 bg-gt-white hover:border-gt-tech-gold hover:bg-gt-diploma"
 				/>
-				<Link
-					href="/path-builder"
-					className="flex flex-col rounded-xl border-2 border-gt-navy/20 bg-gt-white p-6 text-left shadow-sm transition-colors hover:border-gt-tech-gold hover:bg-gt-diploma focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
-				>
-					<span className="text-lg font-semibold text-gt-navy">🛣️ Path Builder</span>
-					<span className="mt-1 text-sm text-gt-gray-matter">Visualize your learning journey</span>
-				</Link>
-				</motion.div>
-				<motion.div variants={item} className="relative">
-				<OpenInNewTabButton
+				<HomeNavCard
 					href="/career"
 					newTabLabel="Career Planner"
-					className="absolute top-3 right-3 z-10"
+					title="Career Planner"
+					description="Plan your degree path"
+					centerOnBottomRow={centerCareerPlanner}
+					className="border-gt-pi-mile bg-gt-white hover:border-gt-tech-gold hover:bg-gt-diploma"
 				/>
-				<Link
-					href="/career"
-					className="flex flex-col rounded-xl border-2 border-gt-pi-mile bg-gt-white p-6 text-left shadow-sm transition-colors hover:border-gt-tech-gold hover:bg-gt-diploma focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
-				>
-					<span className="text-lg font-semibold text-gt-navy">Career Planner</span>
-					<span className="mt-1 text-sm text-gt-gray-matter">Plan your degree path</span>
-				</Link>
-				</motion.div>
 				{isAdmin && (
-					<motion.div variants={item}>
+					<motion.div
+						variants={item}
+						className={cn('relative', HOME_CARD_HEIGHT, HOME_CARD_WIDTH)}
+					>
 						<Link
 							href="/admin"
-							className="flex flex-col rounded-xl border-2 border-gt-pi-mile bg-gt-white p-6 text-left shadow-sm transition-colors hover:border-gt-tech-gold hover:bg-gt-diploma focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
+							className={cn(
+								CARD_LINK_CLASS,
+								'border-gt-pi-mile bg-gt-white hover:border-gt-tech-gold hover:bg-gt-diploma',
+							)}
 						>
-							<span className="text-lg font-semibold text-gt-tech-dark-gold">Admin</span>
-							<span className="mt-1 text-sm text-gt-gray-matter">Manage courses and data</span>
+							<span className="shrink-0 text-lg font-semibold text-gt-tech-dark-gold">
+								Admin
+							</span>
+							<span className="mt-2 line-clamp-3 text-sm leading-snug text-gt-gray-matter">
+								Manage courses and data
+							</span>
 						</Link>
 					</motion.div>
 				)}
