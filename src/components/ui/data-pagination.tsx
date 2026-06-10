@@ -51,7 +51,7 @@ export function DataPagination({
 
 	return (
 		<nav
-			className="mt-4 flex flex-wrap items-center gap-2"
+			className="mt-4 flex flex-wrap items-center justify-center gap-2"
 			aria-label={ariaLabel}
 		>
 			<button

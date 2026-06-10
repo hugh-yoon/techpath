@@ -22,7 +22,7 @@ import { usePathname } from 'next/navigation'
 import { AccountMenu } from '@/components/auth/account-menu'
 import { useOpenTabs } from '@/context/open-tabs-provider'
 import { isTabBarRoute } from '@/lib/app-navigation'
-import { TAB_BAR_CHROME } from '@/lib/page-chrome'
+import { getTabBarChrome, getTabBarTone } from '@/lib/page-chrome'
 import { useTabBarScroll } from '@/hooks/use-tab-bar-scroll'
 import { SortableTab } from '@/components/tabs/sortable-tab'
 import { TabFace } from '@/components/tabs/tab-face'
@@ -31,14 +31,10 @@ import { cn } from '@/lib/utils'
 const AUTH_ROUTE_PREFIX = '/auth/'
 const AUTH_CHROMELESS_ROUTES = ['/auth/confirm-email']
 
-const newTabButtonClass = cn(
-	'mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
-	'text-white/70 transition-colors hover:bg-white/12 hover:text-white',
-	'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gt-tech-gold',
-)
-
 export function TabBar() {
 	const pathname = usePathname() ?? '/'
+	const barTone = getTabBarTone(pathname)
+	const isNavyBar = barTone === 'navy'
 	const scrollRef = useRef<HTMLDivElement>(null)
 	const {
 		tabs,
@@ -81,6 +77,14 @@ export function TabBar() {
 		reorderTabs(String(active.id), String(over.id))
 	}
 
+	const newTabButtonClass = cn(
+		'mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
+		'transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gt-tech-gold',
+		isNavyBar
+			? 'text-white/70 hover:bg-white/12 hover:text-white'
+			: 'text-gt-navy/70 hover:bg-gt-navy/10 hover:text-gt-navy',
+	)
+
 	const tabsContent = showTabs ? (
 		<DndContext
 			sensors={sensors}
@@ -91,7 +95,12 @@ export function TabBar() {
 		>
 			<div
 				ref={scrollRef}
-				className="flex min-w-0 flex-1 items-end gap-1 overflow-x-auto overscroll-x-contain [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/20"
+				className={cn(
+					'flex min-w-0 flex-1 items-end gap-1 overflow-x-auto overscroll-x-contain [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1',
+					isNavyBar
+						? '[&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/20'
+						: '[&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gt-navy/20',
+				)}
 			>
 				<SortableContext
 					items={tabs.map((tab) => tab.id)}
@@ -101,6 +110,7 @@ export function TabBar() {
 						<SortableTab
 							key={tab.id}
 							tab={tab}
+							barTone={barTone}
 							isActive={tab.id === activeTabId}
 							onClose={() => closeTab(tab.id)}
 							onActivate={() => activateTab(tab.id)}
@@ -122,6 +132,7 @@ export function TabBar() {
 					<div className="opacity-95 shadow-lg">
 						<TabFace
 							tab={overlayTab}
+							barTone={barTone}
 							isActive={overlayTab.id === activeTabId}
 							onClose={() => closeTab(overlayTab.id)}
 						/>
@@ -135,14 +146,14 @@ export function TabBar() {
 
 	return (
 		<div
-			className={cn('sticky top-0 z-40', TAB_BAR_CHROME)}
+			className={cn('sticky top-0 z-40', getTabBarChrome(pathname))}
 			role={showTabs ? 'tablist' : undefined}
 			aria-label={showTabs ? 'Open pages' : undefined}
 		>
 			<div className="flex items-end gap-3 px-2 pt-1.5 pb-1">
 				{tabsContent}
 				<div className="mb-0.5 shrink-0">
-					<AccountMenu tone="light" />
+					<AccountMenu tone={isNavyBar ? 'light' : 'default'} />
 				</div>
 			</div>
 		</div>

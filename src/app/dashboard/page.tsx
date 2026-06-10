@@ -99,7 +99,7 @@ function DashboardPagination({
 
 	return (
 		<nav
-			className="mt-6 flex flex-wrap items-center gap-2"
+			className="mt-6 flex flex-wrap items-center justify-center gap-2"
 			aria-label="Search results pagination"
 		>
 			<button

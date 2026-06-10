@@ -3,11 +3,13 @@
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { OpenTab } from '@/lib/app-navigation'
+import type { TabBarTone } from '@/lib/page-chrome'
 import { TabFace } from '@/components/tabs/tab-face'
 
 interface SortableTabProps {
 	tab: OpenTab
 	isActive: boolean
+	barTone: TabBarTone
 	onClose: () => void
 	onActivate: () => void
 }
@@ -15,6 +17,7 @@ interface SortableTabProps {
 export function SortableTab({
 	tab,
 	isActive,
+	barTone,
 	onClose,
 	onActivate,
 }: SortableTabProps) {
@@ -38,6 +41,7 @@ export function SortableTab({
 			<TabFace
 				tab={tab}
 				isActive={isActive}
+				barTone={barTone}
 				onClose={onClose}
 				onActivate={onActivate}
 				dragHandleProps={listeners}
