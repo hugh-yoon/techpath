@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
+import { Suspense, useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
@@ -188,6 +188,30 @@ function DashboardPagination({
 }
 
 export default function DashboardPage() {
+	return (
+		<Suspense fallback={<DashboardPageFallback />}>
+			<DashboardPageContent />
+		</Suspense>
+	)
+}
+
+function DashboardPageFallback() {
+	return (
+		<div className="min-h-screen bg-gt-white dark:bg-[var(--background)]">
+			<PageHeader
+				title="Course Search"
+				subtitle="Find courses and sections by department, number, name, or instructor"
+				backHref="/"
+				homeHref="/"
+			/>
+			<div className="max-w-7xl mx-auto px-6 py-8">
+				<DashboardResultsSkeleton />
+			</div>
+		</div>
+	)
+}
+
+function DashboardPageContent() {
 	const pathname = usePathname()
 	const router = useRouter()
 	const searchParams = useSearchParams()
