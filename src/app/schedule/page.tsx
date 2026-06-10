@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils'
 import type { Schedule } from '@/types'
 import { useActionToast } from '@/components/ui/action-toast'
 import { withReturnTo } from '@/lib/return-navigation'
+import { TabNavLink } from '@/components/tabs/tab-nav-link'
 
 function ScheduleSidebarItem({
 	schedule,
@@ -289,17 +290,23 @@ export default function SchedulePage() {
 												key={ss.id}
 												className="rounded-lg border border-gt-pi-mile bg-gt-white p-2 dark:border-gt-gray-matter dark:bg-surface"
 											>
-												<Link
+												<TabNavLink
 													href={withReturnTo(
 														`/course/${ss.section?.course_id}`,
 														pathname,
 													)}
+													newTabLabel="Class Information"
+													tabLabel={
+														ss.section?.course
+															? `${ss.section.course.department} ${ss.section.course.course_number}`
+															: 'Course'
+													}
 													className="text-sm font-medium text-gt-navy hover:underline dark:text-foreground"
 												>
 													{ss.section?.course?.department}{' '}
 													{ss.section?.course?.course_number}{' '}
 													{ss.section?.course?.course_name}
-												</Link>
+												</TabNavLink>
 												<p className="mt-0.5 text-xs text-gt-gray-matter dark:text-foreground-muted">
 													Section {ss.section?.section_code} ·{' '}
 													{ss.section?.instructor?.name ?? 'TBA'} ·{' '}

@@ -4,6 +4,7 @@ import { useMemo } from 'react'
 import { Course, CourseRedFlag } from '@/types'
 import { AlertBanner } from '../ui/alert-banner'
 import { InfoPill } from '../ui/info-pill'
+import { OpenInNewTabButton } from '@/components/tabs/open-in-new-tab-button'
 import { AlertTriangle } from 'lucide-react'
 
 interface DiscoveryCardProps {
@@ -32,7 +33,13 @@ export function DiscoveryCard({ course, onAction }: DiscoveryCardProps) {
 
 	return (
 		<div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border-2 border-gt-navy/10 bg-gradient-to-br from-gt-white to-gt-diploma shadow-lg">
-			<div className="shrink-0 border-b border-gt-navy/10 bg-gt-navy px-3 py-2">
+			<div className="relative shrink-0 border-b border-gt-navy/10 bg-gt-navy px-3 py-2">
+				<OpenInNewTabButton
+					href={`/course/${course.id}`}
+					newTabLabel="Class Information"
+					tabLabel={`${course.department} ${course.course_number}`}
+					className="absolute top-2 right-2 border-white/30 bg-white/10 text-gt-white hover:border-gt-tech-gold hover:bg-gt-tech-gold/25 hover:text-gt-white"
+				/>
 				<h3 className="text-base font-bold leading-tight text-gt-tech-gold">
 					{course.department} {course.course_number}
 				</h3>

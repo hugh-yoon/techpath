@@ -3,6 +3,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { TabNavLink } from '@/components/tabs/tab-nav-link'
 import {
 	DndContext,
 	DragEndEvent,
@@ -877,14 +878,14 @@ function DraggableSection({
 			>
 				⋮⋮
 			</span>
-			<Link
+			<TabNavLink
 				href={withReturnTo(`/course/${courseId}`, fromPath)}
+				newTabLabel="Class Information"
+				tabLabel={label}
 				className="flex-1 truncate hover:underline"
-				target="_blank"
-				rel="noopener noreferrer"
 			>
 				{label}
-			</Link>
+			</TabNavLink>
 		</div>
 	)
 }

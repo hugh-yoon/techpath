@@ -27,6 +27,7 @@ import {
 	parseDashboardSearchParams,
 } from '@/lib/course-search-url'
 import { InstructorRmpBadge } from '@/components/reviews'
+import { OpenInNewTabButton } from '@/components/tabs/open-in-new-tab-button'
 
 const RESULT_CARD_MIN_H = 'min-h-[13.5rem]'
 
@@ -321,11 +322,17 @@ export default function DashboardPage() {
 					{results.map((course, i) => (
 						<motion.li
 							key={course.id}
-							className="flex h-full min-h-0"
+							className="relative flex h-full min-h-0"
 							initial={{ opacity: 0, y: 12 }}
 							animate={{ opacity: 1, y: 0 }}
 							transition={{ duration: 0.25, delay: i * 0.03 }}
 						>
+							<OpenInNewTabButton
+								href={`/course/${course.id}`}
+								newTabLabel="Class Information"
+								tabLabel={`${course.department} ${course.course_number}`}
+								className="absolute top-3 right-3 z-10"
+							/>
 							<Link
 								href={withReturnTo(`/course/${course.id}`, pathname)}
 								className={`flex w-full flex-col rounded-xl border-2 border-gt-navy/10 bg-gt-white p-4 transition-colors hover:border-gt-tech-gold/40 hover:bg-gt-diploma hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gt-tech-gold focus-visible:ring-offset-2 dark:border-gt-gray-matter dark:bg-surface dark:hover:bg-gt-gray-matter/50 ${RESULT_CARD_MIN_H}`}

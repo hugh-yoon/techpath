@@ -9,9 +9,15 @@ interface SortableTabProps {
 	tab: OpenTab
 	isActive: boolean
 	onClose: () => void
+	onActivate: () => void
 }
 
-export function SortableTab({ tab, isActive, onClose }: SortableTabProps) {
+export function SortableTab({
+	tab,
+	isActive,
+	onClose,
+	onActivate,
+}: SortableTabProps) {
 	const {
 		attributes,
 		listeners,
@@ -33,6 +39,7 @@ export function SortableTab({ tab, isActive, onClose }: SortableTabProps) {
 				tab={tab}
 				isActive={isActive}
 				onClose={onClose}
+				onActivate={onActivate}
 				dragHandleProps={listeners}
 			/>
 		</div>

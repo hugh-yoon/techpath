@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { motion } from 'framer-motion'
+import { OpenInNewTabButton } from '@/components/tabs/open-in-new-tab-button'
 
 const container = {
 	hidden: { opacity: 0 },
@@ -42,7 +43,12 @@ export default function Home() {
 				initial="hidden"
 				animate="show"
 			>
-				<motion.div variants={item}>
+				<motion.div variants={item} className="relative">
+				<OpenInNewTabButton
+					href="/discovery"
+					newTabLabel="Discovery Deck"
+					className="absolute top-3 right-3 z-10"
+				/>
 				<Link
 					href="/discovery"
 					className="flex flex-col rounded-xl border-2 border-gt-tech-gold bg-gradient-to-br from-gt-white to-gt-diploma p-6 text-left shadow-sm transition-colors hover:border-gt-tech-medium-gold hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
@@ -51,7 +57,12 @@ export default function Home() {
 					<span className="mt-1 text-sm text-gt-gray-matter">Swipe through courses to find your next class</span>
 				</Link>
 				</motion.div>
-				<motion.div variants={item}>
+				<motion.div variants={item} className="relative">
+				<OpenInNewTabButton
+					href="/dashboard"
+					newTabLabel="Course Search"
+					className="absolute top-3 right-3 z-10"
+				/>
 				<Link
 					href="/dashboard"
 					className="flex flex-col rounded-xl border-2 border-gt-pi-mile bg-gt-white p-6 text-left shadow-sm transition-colors hover:border-gt-tech-gold hover:bg-gt-diploma focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
@@ -60,7 +71,12 @@ export default function Home() {
 					<span className="mt-1 text-sm text-gt-gray-matter">Find courses and sections</span>
 				</Link>
 				</motion.div>
-				<motion.div variants={item}>
+				<motion.div variants={item} className="relative">
+				<OpenInNewTabButton
+					href="/schedule"
+					newTabLabel="Schedule Builder"
+					className="absolute top-3 right-3 z-10"
+				/>
 				<Link
 					href="/schedule"
 					className="flex flex-col rounded-xl border-2 border-gt-pi-mile bg-gt-white p-6 text-left shadow-sm transition-colors hover:border-gt-tech-gold hover:bg-gt-diploma focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
@@ -69,7 +85,12 @@ export default function Home() {
 					<span className="mt-1 text-sm text-gt-gray-matter">Build semester schedules</span>
 				</Link>
 				</motion.div>
-				<motion.div variants={item}>
+				<motion.div variants={item} className="relative">
+				<OpenInNewTabButton
+					href="/path-builder"
+					newTabLabel="Path Builder"
+					className="absolute top-3 right-3 z-10"
+				/>
 				<Link
 					href="/path-builder"
 					className="flex flex-col rounded-xl border-2 border-gt-navy/20 bg-gt-white p-6 text-left shadow-sm transition-colors hover:border-gt-tech-gold hover:bg-gt-diploma focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
@@ -78,7 +99,12 @@ export default function Home() {
 					<span className="mt-1 text-sm text-gt-gray-matter">Visualize your learning journey</span>
 				</Link>
 				</motion.div>
-				<motion.div variants={item}>
+				<motion.div variants={item} className="relative">
+				<OpenInNewTabButton
+					href="/career"
+					newTabLabel="Career Planner"
+					className="absolute top-3 right-3 z-10"
+				/>
 				<Link
 					href="/career"
 					className="flex flex-col rounded-xl border-2 border-gt-pi-mile bg-gt-white p-6 text-left shadow-sm transition-colors hover:border-gt-tech-gold hover:bg-gt-diploma focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"

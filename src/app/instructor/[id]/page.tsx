@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import Link from 'next/link'
 import { useParams, usePathname, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { PageHeader } from '@/components/ui/page-header'
@@ -17,6 +16,7 @@ import {
 	ReviewsRatingFilter,
 } from '@/components/reviews'
 import { DataPagination } from '@/components/ui/data-pagination'
+import { TabNavLink } from '@/components/tabs/tab-nav-link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -180,13 +180,19 @@ export default function InstructorDetailPage() {
 									transition={{ duration: 0.2, delay: i * 0.04 }}
 									className="rounded-xl border-2 border-gt-navy/10 bg-gt-white p-3 dark:border-gt-gray-matter dark:bg-surface"
 								>
-									<Link
+									<TabNavLink
 										href={withReturnTo(`/course/${s.course_id}`, pathname)}
+										newTabLabel="Class Information"
+										tabLabel={
+											s.course
+												? `${s.course.department} ${s.course.course_number}`
+												: 'Course'
+										}
 										className="font-medium text-gt-navy underline hover:text-gt-bold-blue dark:text-foreground dark:hover:text-link-hover"
 									>
 										{s.course?.department} {s.course?.course_number}{' '}
 										{s.course?.course_name}
-									</Link>
+									</TabNavLink>
 									<span className="ml-2 text-gt-gray-matter dark:text-foreground-muted">
 										Section {s.section_code} · {formatDaysShort(s.day_pattern)}{' '}
 										{formatTimeDisplay(s.start_time)}–

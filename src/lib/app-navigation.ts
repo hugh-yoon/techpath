@@ -107,6 +107,35 @@ export function reconcileStoredTabs(hrefs: string[]): OpenTab[] {
 	return tabs
 }
 
+/** Replace the active tab's destination (normal in-page navigation). */
+export function replaceActiveTab(
+	tabs: OpenTab[],
+	activeTabId: string,
+	pathname: string,
+): { tabs: OpenTab[]; activeTabId: string } {
+	const index = tabs.findIndex((tab) => tab.id === activeTabId)
+	if (index === -1) {
+		const tab = createTab(pathname)
+		return { tabs: [...tabs, tab], activeTabId: tab.id }
+	}
+
+	const path = normalizeTabPath(pathname)
+	const current = tabs[index]
+	if (current.href === path) {
+		return { tabs, activeTabId }
+	}
+
+	const meta = createTab(path)
+	const next = [...tabs]
+	next[index] = {
+		id: meta.id,
+		label: meta.label,
+		href: meta.href,
+	}
+	return { tabs: next, activeTabId: meta.id }
+}
+
+/** @deprecated Use replaceActiveTab for in-page navigation. Kept for home-tab creation. */
 export function mergeTabsForPath(tabs: OpenTab[], pathname: string): OpenTab[] {
 	const path = normalizeTabPath(pathname)
 	if (tabs.some((tab) => tab.href === path)) return tabs

@@ -7,6 +7,7 @@ import { motion } from 'framer-motion'
 import { PageHeader } from '@/components/ui/page-header'
 import { useCourse, useCourseReviews, useCourseRmpReviews } from '@/hooks'
 import { InstructorReviewCard, InstructorRmpBadge } from '@/components/reviews'
+import { TabNavLink } from '@/components/tabs/tab-nav-link'
 import { useSectionsByCourse } from '@/hooks/use-sections'
 import { AddToScheduleDialog } from '@/components/course/add-to-schedule-dialog'
 import { CourseReviewDialog } from '@/components/course/course-review-dialog'
@@ -173,12 +174,14 @@ export default function CourseDetailPage() {
 										<span className="font-medium">Section {s.section_code}</span>
 										<span className="mx-2 text-gt-gray-matter">·</span>
 										{s.instructor_id ? (
-											<Link
+											<TabNavLink
 												href={withReturnTo(`/instructor/${s.instructor_id}`, pathname)}
+												newTabLabel="Instructor Information"
+												tabLabel={s.instructor?.name ?? 'Instructor'}
 												className="text-gt-navy underline hover:text-gt-bold-blue dark:text-foreground dark:hover:text-link-hover"
 											>
 												{s.instructor?.name ?? 'TBA'}
-											</Link>
+											</TabNavLink>
 										) : (
 											<span>{s.instructor?.name ?? 'TBA'}</span>
 										)}

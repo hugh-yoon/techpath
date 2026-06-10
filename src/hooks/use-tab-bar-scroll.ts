@@ -4,17 +4,17 @@ import { useEffect, type RefObject } from 'react'
 
 export function useTabBarScroll(
 	containerRef: RefObject<HTMLElement | null>,
-	activeHref: string,
+	activeTabId: string | null,
 ) {
 	useEffect(() => {
 		const container = containerRef.current
-		if (!container) return
+		if (!container || !activeTabId) return
 
 		const activeTab = container.querySelector(
-			`[data-tab-href="${CSS.escape(activeHref)}"]`,
+			`[data-tab-id="${CSS.escape(activeTabId)}"]`,
 		)
 		activeTab?.scrollIntoView({ inline: 'nearest', block: 'nearest' })
-	}, [activeHref, containerRef])
+	}, [activeTabId, containerRef])
 
 	useEffect(() => {
 		const container = containerRef.current

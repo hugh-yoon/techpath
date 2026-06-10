@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
+import { PAGE_HEADER_CHROME } from '@/lib/page-chrome'
 
 interface PageHeaderProps {
 	title: string
@@ -33,7 +34,8 @@ export function PageHeader({
 	return (
 		<div
 			className={cn(
-				'border-b border-gt-navy/10 bg-gradient-to-r from-gt-navy to-gt-navy/90 px-6 py-8',
+				'border-b border-gt-navy/10 px-6 py-8',
+				PAGE_HEADER_CHROME,
 				className,
 			)}
 		>

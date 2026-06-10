@@ -6,6 +6,7 @@ import { CALENDAR_TOTAL_ROWS } from '@/utils/constants'
 import { getBlockRowSpan, timeToRowIndex, formatTimeDisplay } from '@/utils/time'
 import { cn } from '@/lib/utils'
 import { withReturnTo } from '@/lib/return-navigation'
+import { OpenInNewTabButton } from '@/components/tabs/open-in-new-tab-button'
 import type { SectionWithRelations } from '@/types'
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'] as const
@@ -103,26 +104,38 @@ export function CalendarGrid({ sections }: CalendarGridProps) {
 						))}
 						{/* Course blocks: extra padding so text stays on one line */}
 						{blocksByDay[dayIndex].map(({ section, startRow, span }) => (
-							<Link
+							<div
 								key={section.id}
-								href={withReturnTo(`/course/${section.course_id}`, pathname)}
-								target="_blank"
-								rel="noopener noreferrer"
-								className="absolute left-1 right-1 flex flex-col justify-center rounded bg-gt-tech-gold/20 py-1.5 px-2 text-xs font-medium text-gt-navy hover:bg-gt-tech-gold/35 dark:bg-gt-tech-gold/25 dark:text-gt-navy dark:hover:bg-gt-tech-gold/40"
+								className="absolute left-1 right-1"
 								style={{
 									top: startRow * ROW_HEIGHT + 2,
 									height: span * ROW_HEIGHT - 4,
 									minHeight: 32,
 								}}
-								aria-label={`${section.course?.department} ${section.course?.course_number} ${section.section_code} – open course`}
 							>
-								<span className="truncate font-medium">
-									{section.course?.department} {section.course?.course_number}
-								</span>
-								<span className="truncate text-[11px]">
-									{section.section_code} {section.instructor?.name ?? ''}
-								</span>
-							</Link>
+								<Link
+									href={withReturnTo(`/course/${section.course_id}`, pathname)}
+									className="flex h-full flex-col justify-center rounded bg-gt-tech-gold/20 py-1.5 px-2 pr-8 text-xs font-medium text-gt-navy hover:bg-gt-tech-gold/35 dark:bg-gt-tech-gold/25 dark:text-gt-navy dark:hover:bg-gt-tech-gold/40"
+									aria-label={`${section.course?.department} ${section.course?.course_number} ${section.section_code} – open course`}
+								>
+									<span className="truncate font-medium">
+										{section.course?.department} {section.course?.course_number}
+									</span>
+									<span className="truncate text-[11px]">
+										{section.section_code} {section.instructor?.name ?? ''}
+									</span>
+								</Link>
+								<OpenInNewTabButton
+									href={withReturnTo(`/course/${section.course_id}`, pathname)}
+									newTabLabel="Class Information"
+									tabLabel={
+										section.course
+											? `${section.course.department} ${section.course.course_number}`
+											: 'Course'
+									}
+									className="absolute top-1 right-1 h-5 w-5"
+								/>
+							</div>
 						))}
 					</div>
 				))}
