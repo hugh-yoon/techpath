@@ -3,9 +3,14 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useAuth } from '@/context/auth-provider'
 import { useSchedules, useSchedule } from '@/hooks'
+import {
+	deleteSchedule,
+	removeSectionFromSchedule,
+	updateScheduleName,
+} from '@/lib/plan-mutations'
 import { useScheduleStore } from '@/stores/schedule-store'
-import { supabase } from '@/lib/supabaseClient'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { CalendarGrid } from '@/components/schedule/calendar-grid'
@@ -105,6 +110,7 @@ function ScheduleSidebarItem({
 
 export default function SchedulePage() {
 	const pathname = usePathname()
+	const { user } = useAuth()
 	const { data: schedules, isLoading: schedulesLoading, refetch } = useSchedules()
 	const activeScheduleId = useScheduleStore((s) => s.activeScheduleId)
 	const setActiveScheduleId = useScheduleStore((s) => s.setActiveScheduleId)
@@ -146,10 +152,10 @@ export default function SchedulePage() {
 	const handleRemoveSection = useCallback(
 		async (scheduleSectionId: string) => {
 			if (!confirm('Remove this class from your schedule?')) return
-			const { error } = await supabase
-				.from('schedule_sections')
-				.delete()
-				.eq('id', scheduleSectionId)
+			const { error } = await removeSectionFromSchedule(
+				user?.id ?? null,
+				scheduleSectionId,
+			)
 			if (error) {
 				console.error('Failed to remove section:', error)
 				notify('Failed to remove class from schedule', 'error')
@@ -159,28 +165,28 @@ export default function SchedulePage() {
 			await refetch()
 			notify('Class removed from schedule')
 		},
-		[notify, refetch, refetchActiveSchedule],
+		[notify, refetch, refetchActiveSchedule, user?.id],
 	)
 
 	const handleDeleteSchedule = useCallback(
 		async (schedule: Schedule) => {
 			if (!confirm(`Delete schedule "${schedule.name}"? All classes in it will be removed.`)) return
-			await supabase.from('schedules').delete().eq('id', schedule.id)
+			await deleteSchedule(user?.id ?? null, schedule.id)
 			if (activeScheduleId === schedule.id) {
 				const rest = schedules.filter((s) => s.id !== schedule.id)
 				setActiveScheduleId(rest[0]?.id ?? null)
 			}
 			await refetch()
 		},
-		[activeScheduleId, schedules, setActiveScheduleId, refetch],
+		[activeScheduleId, schedules, setActiveScheduleId, refetch, user?.id],
 	)
 
 	const handleRenameSchedule = useCallback(
 		async (scheduleId: string, name: string) => {
-			await supabase.from('schedules').update({ name }).eq('id', scheduleId)
+			await updateScheduleName(user?.id ?? null, scheduleId, name)
 			await refetch()
 		},
-		[refetch],
+		[refetch, user?.id],
 	)
 
 	const totalCredits =

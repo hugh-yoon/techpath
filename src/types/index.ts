@@ -122,7 +122,7 @@ export interface CareerWithSchedules extends Career {
 		id: string
 		schedule_id: string
 		semester_order: number
-		schedule: ScheduleWithSections
+		schedule: ScheduleWithSections | null
 	}> | null
 }
 

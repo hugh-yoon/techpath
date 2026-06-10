@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useAuth } from '@/context/auth-provider'
 import { useSchedules } from '@/hooks/use-schedules'
-import { supabase } from '@/lib/supabaseClient'
+import { addSectionToSchedule, createSchedule } from '@/lib/plan-mutations'
 import {
 	Dialog,
 	DialogContent,
@@ -21,6 +22,7 @@ import {
 	SelectValue,
 } from '@/components/ui/select'
 import { scheduleSchema, type ScheduleFormValues } from '@/lib/validations'
+import type { Semester } from '@/types'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { SEMESTERS } from '@/utils/constants'
@@ -39,6 +41,7 @@ export function AddToScheduleDialog({
 	sectionId,
 	onSuccess,
 }: AddToScheduleDialogProps) {
+	const { user } = useAuth()
 	const { data: schedules, refetch } = useSchedules()
 	const [creating, setCreating] = useState(false)
 	const [selectedScheduleId, setSelectedScheduleId] = useState<string | null>(null)
@@ -61,12 +64,17 @@ export function AddToScheduleDialog({
 	const handleAddToExisting = async () => {
 		if (!selectedScheduleId) return
 		setSubmitError(null)
-		const { error } = await supabase.from('schedule_sections').insert({
-			schedule_id: selectedScheduleId,
-			section_id: sectionId,
-		})
+		const { error, duplicate } = await addSectionToSchedule(
+			user?.id ?? null,
+			selectedScheduleId,
+			sectionId,
+		)
+		if (duplicate) {
+			notify('That class is already in this schedule', 'info')
+			return
+		}
 		if (error) {
-			setSubmitError(error.message)
+			setSubmitError(error)
 			notify('Failed to add class to schedule', 'error')
 			return
 		}
@@ -77,22 +85,26 @@ export function AddToScheduleDialog({
 
 	const handleCreateAndAdd = createForm.handleSubmit(async (values) => {
 		setSubmitError(null)
-		const { data: newSchedule, error: insertError } = await supabase
-			.from('schedules')
-			.insert({ name: values.name, semester: values.semester, year: values.year })
-			.select('id')
-			.single()
+		const { data: newSchedule, error: insertError } = await createSchedule(
+			user?.id ?? null,
+			{
+				name: values.name,
+				semester: values.semester as Semester,
+				year: values.year,
+			},
+		)
 		if (insertError || !newSchedule) {
-			setSubmitError(insertError?.message ?? 'Failed to create schedule')
+			setSubmitError(insertError ?? 'Failed to create schedule')
 			notify('Failed to create schedule', 'error')
 			return
 		}
-		const { error: linkError } = await supabase.from('schedule_sections').insert({
-			schedule_id: newSchedule.id,
-			section_id: sectionId,
-		})
+		const { error: linkError } = await addSectionToSchedule(
+			user?.id ?? null,
+			newSchedule.id,
+			sectionId,
+		)
 		if (linkError) {
-			setSubmitError(linkError.message)
+			setSubmitError(linkError)
 			notify('Failed to add class to schedule', 'error')
 			return
 		}

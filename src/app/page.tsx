@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { motion } from 'framer-motion'
+import { useAuth } from '@/context/auth-provider'
 import { OpenInNewTabButton } from '@/components/tabs/open-in-new-tab-button'
 
 const container = {
@@ -18,6 +19,8 @@ const item = {
 }
 
 export default function Home() {
+	const { isAdmin, isAuthenticated } = useAuth()
+
 	return (
 		<div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-gt-white p-8">
 			<motion.h1
@@ -54,7 +57,11 @@ export default function Home() {
 					className="flex flex-col rounded-xl border-2 border-gt-tech-gold bg-gradient-to-br from-gt-white to-gt-diploma p-6 text-left shadow-sm transition-colors hover:border-gt-tech-medium-gold hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
 				>
 					<span className="text-lg font-semibold text-gt-navy">✨ Discovery Deck</span>
-					<span className="mt-1 text-sm text-gt-gray-matter">Swipe through courses to find your next class</span>
+					<span className="mt-1 text-sm text-gt-gray-matter">
+						{isAuthenticated
+							? 'Swipe through courses to find your next class'
+							: 'Sign in required — swipe through courses to find your next class'}
+					</span>
 				</Link>
 				</motion.div>
 				<motion.div variants={item} className="relative">
@@ -113,15 +120,17 @@ export default function Home() {
 					<span className="mt-1 text-sm text-gt-gray-matter">Plan your degree path</span>
 				</Link>
 				</motion.div>
-				<motion.div variants={item}>
-				<Link
-					href="/admin"
-					className="flex flex-col rounded-xl border-2 border-gt-pi-mile bg-gt-white p-6 text-left shadow-sm transition-colors hover:border-gt-tech-gold hover:bg-gt-diploma focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
-				>
-					<span className="text-lg font-semibold text-gt-tech-dark-gold">Admin</span>
-					<span className="mt-1 text-sm text-gt-gray-matter">Manage courses and data</span>
-				</Link>
-				</motion.div>
+				{isAdmin && (
+					<motion.div variants={item}>
+						<Link
+							href="/admin"
+							className="flex flex-col rounded-xl border-2 border-gt-pi-mile bg-gt-white p-6 text-left shadow-sm transition-colors hover:border-gt-tech-gold hover:bg-gt-diploma focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
+						>
+							<span className="text-lg font-semibold text-gt-tech-dark-gold">Admin</span>
+							<span className="mt-1 text-sm text-gt-gray-matter">Manage courses and data</span>
+						</Link>
+					</motion.div>
+				)}
 			</motion.nav>
 		</div>
 	)

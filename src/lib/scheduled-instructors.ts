@@ -1,7 +1,5 @@
 import { supabase } from '@/lib/supabaseClient'
-import {
-	applyActiveSectionTermFilter,
-} from '@/lib/active-term-ids'
+import { activeSectionTermOrFilter } from '@/lib/active-term-ids'
 import { getCachedActiveTermIds } from '@/lib/active-term-cache'
 
 export interface ScheduledInstructorRef {
@@ -38,7 +36,10 @@ export async function fetchScheduledInstructors(): Promise<
 			.eq('is_active', true)
 			.not('instructor_id', 'is', null)
 			.range(from, from + pageSize - 1)
-		query = applyActiveSectionTermFilter(query, activeTermIds)
+		const termOr = activeSectionTermOrFilter(activeTermIds)
+		if (termOr) {
+			query = query.or(termOr)
+		}
 		const { data, error } = await query
 		if (error) throw error
 		if (!data?.length) break

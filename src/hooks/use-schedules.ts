@@ -2,6 +2,14 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabaseClient'
+import { useAuth } from '@/context/auth-provider'
+import { fetchSectionsByIds } from '@/lib/fetch-sections'
+import {
+	buildGuestScheduleWithSections,
+	getGuestSchedule,
+	listGuestSchedules,
+	subscribeGuestPlanChanges,
+} from '@/lib/guest-plan-storage'
 import type { Schedule, ScheduleWithSections, SectionWithRelations } from '@/types'
 import { parseDayPattern } from '@/utils/days'
 import { normalizeTime } from '@/utils/db'
@@ -45,7 +53,28 @@ function mapSectionWithRelations(ssRow: Record<string, unknown>): SectionWithRel
 	}
 }
 
+async function hydrateGuestSchedule(
+	id: string,
+): Promise<ScheduleWithSections | null> {
+	const guestSchedule = getGuestSchedule(id)
+	if (!guestSchedule) return null
+	const sectionIds = guestSchedule.sections.map((row) => row.section_id)
+	const sectionMap = await fetchSectionsByIds(sectionIds)
+	return buildGuestScheduleWithSections(guestSchedule, sectionMap)
+}
+
+async function hydrateGuestSchedules(): Promise<ScheduleWithSections[]> {
+	const schedules = listGuestSchedules()
+	const results: ScheduleWithSections[] = []
+	for (const schedule of schedules) {
+		const hydrated = await hydrateGuestSchedule(schedule.id)
+		if (hydrated) results.push(hydrated)
+	}
+	return results
+}
+
 export function useSchedules() {
+	const { user, isLoading: authLoading } = useAuth()
 	const [data, setData] = useState<Schedule[]>([])
 	const [error, setError] = useState<Error | null>(null)
 	const [isLoading, setIsLoading] = useState(true)
@@ -53,6 +82,13 @@ export function useSchedules() {
 	const refetch = useCallback(async () => {
 		setIsLoading(true)
 		setError(null)
+
+		if (!user) {
+			setData(listGuestSchedules())
+			setIsLoading(false)
+			return
+		}
+
 		const { data: rows, error: e } = await supabase
 			.from('schedules')
 			.select('*')
@@ -65,21 +101,30 @@ export function useSchedules() {
 		}
 		setData((rows ?? []) as Schedule[])
 		setIsLoading(false)
-	}, [])
+	}, [user])
 
 	useEffect(() => {
+		if (authLoading) return
 		refetch()
-	}, [refetch])
+	}, [authLoading, refetch])
 
-	return { data, error, isLoading, refetch }
+	useEffect(() => {
+		if (user) return
+		return subscribeGuestPlanChanges(() => {
+			refetch()
+		})
+	}, [user, refetch])
+
+	return { data, error, isLoading: isLoading || authLoading, refetch }
 }
 
 export function useSchedule(id: string | null) {
+	const { user, isLoading: authLoading } = useAuth()
 	const [data, setData] = useState<ScheduleWithSections | null>(null)
 	const [error, setError] = useState<Error | null>(null)
 	const [isLoading, setIsLoading] = useState(true)
 
-	const fetchSchedule = useCallback(() => {
+	const fetchSchedule = useCallback(async () => {
 		if (!id) {
 			setData(null)
 			setIsLoading(false)
@@ -87,7 +132,16 @@ export function useSchedule(id: string | null) {
 		}
 		setIsLoading(true)
 		setError(null)
-		supabase
+
+		if (!user) {
+			const hydrated = await hydrateGuestSchedule(id)
+			setData(hydrated)
+			setError(hydrated ? null : new Error('Schedule not found'))
+			setIsLoading(false)
+			return
+		}
+
+		const { data: row, error: e } = await supabase
 			.from('schedules')
 			.select(
 				`
@@ -105,39 +159,48 @@ export function useSchedule(id: string | null) {
 			)
 			.eq('id', id)
 			.single()
-			.then(({ data: row, error: e }) => {
-				if (e) {
-					setError(e as Error)
-					setData(null)
-				} else {
-					const r = row as Record<string, unknown>
-					const ss = (r.schedule_sections as Record<string, unknown>[] | null) ?? []
-					const schedule_sections = ss.map((ssRow) => ({
-						id: ssRow.id as string,
-						section_id: ssRow.section_id as string,
-						section: mapSectionWithRelations(ssRow as Record<string, unknown>),
-					}))
-					setData({
-						...r,
-						schedule_sections,
-					} as ScheduleWithSections)
-				}
-				setIsLoading(false)
-			})
-	}, [id])
+
+		if (e) {
+			setError(e as Error)
+			setData(null)
+		} else {
+			const r = row as Record<string, unknown>
+			const ss = (r.schedule_sections as Record<string, unknown>[] | null) ?? []
+			const schedule_sections = ss.map((ssRow) => ({
+				id: ssRow.id as string,
+				section_id: ssRow.section_id as string,
+				section: mapSectionWithRelations(ssRow as Record<string, unknown>),
+			}))
+			setData({
+				...r,
+				schedule_sections,
+			} as ScheduleWithSections)
+		}
+		setIsLoading(false)
+	}, [id, user])
 
 	useEffect(() => {
+		if (authLoading) return
 		fetchSchedule()
-	}, [fetchSchedule])
+	}, [authLoading, fetchSchedule])
 
-	return { data, error, isLoading, refetch: fetchSchedule }
+	useEffect(() => {
+		if (user || !id) return
+		return subscribeGuestPlanChanges(() => {
+			fetchSchedule()
+		})
+	}, [user, id, fetchSchedule])
+
+	return {
+		data,
+		error,
+		isLoading: isLoading || authLoading,
+		refetch: fetchSchedule,
+	}
 }
 
-/**
- * Fetches all schedules with their schedule_sections, sections, courses, and instructors.
- * Use for Path Builder or any view that needs multiple semesters at once.
- */
 export function useAllSchedulesWithSections() {
+	const { user, isLoading: authLoading } = useAuth()
 	const [data, setData] = useState<ScheduleWithSections[]>([])
 	const [error, setError] = useState<Error | null>(null)
 	const [isLoading, setIsLoading] = useState(true)
@@ -145,6 +208,14 @@ export function useAllSchedulesWithSections() {
 	const refetch = useCallback(async () => {
 		setIsLoading(true)
 		setError(null)
+
+		if (!user) {
+			const hydrated = await hydrateGuestSchedules()
+			setData(hydrated)
+			setIsLoading(false)
+			return
+		}
+
 		const { data: rows, error: e } = await supabase
 			.from('schedules')
 			.select(
@@ -181,11 +252,19 @@ export function useAllSchedulesWithSections() {
 		})
 		setData(mapped)
 		setIsLoading(false)
-	}, [])
+	}, [user])
 
 	useEffect(() => {
+		if (authLoading) return
 		refetch()
-	}, [refetch])
+	}, [authLoading, refetch])
 
-	return { data, error, isLoading, refetch }
+	useEffect(() => {
+		if (user) return
+		return subscribeGuestPlanChanges(() => {
+			refetch()
+		})
+	}, [user, refetch])
+
+	return { data, error, isLoading: isLoading || authLoading, refetch }
 }

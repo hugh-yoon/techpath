@@ -21,9 +21,17 @@ import {
 	arrayMove,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { useAuth } from '@/context/auth-provider'
 import { useCareers, useCareer, useSchedules } from '@/hooks'
 import { usePrerequisiteMap } from '@/hooks/use-prerequisite-map'
-import { supabase } from '@/lib/supabaseClient'
+import {
+	addScheduleToCareer,
+	createCareer,
+	deleteCareer,
+	moveSectionBetweenSchedules,
+	updateCareerName,
+	updateCareerScheduleOrder,
+} from '@/lib/plan-mutations'
 import { useCareerStore } from '@/stores/career-store'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -128,9 +136,13 @@ function CareerSidebarItem({
 function AddScheduleToCareerButton({
 	careerId,
 	onAdded,
+	userId,
+	careerSchedules,
 }: {
 	careerId: string
 	onAdded: () => void
+	userId: string | null
+	careerSchedules: CareerWithSchedules['career_schedules']
 }) {
 	const { data: schedules } = useSchedules()
 	const [open, setOpen] = useState(false)
@@ -138,18 +150,18 @@ function AddScheduleToCareerButton({
 
 	const handleAdd = async () => {
 		if (!selectedId) return
-		const { data: existing } = await supabase
-			.from('career_schedules')
-			.select('semester_order')
-			.eq('career_id', careerId)
-			.order('semester_order', { ascending: false })
-			.limit(1)
-		const nextOrder = existing?.[0]?.semester_order != null ? existing[0].semester_order + 1 : 0
-		await supabase.from('career_schedules').insert({
-			career_id: careerId,
-			schedule_id: selectedId,
-			semester_order: nextOrder,
-		})
+		const existing = careerSchedules ?? []
+		const maxOrder = existing.reduce(
+			(max, cs) => Math.max(max, cs.semester_order),
+			-1,
+		)
+		const nextOrder = maxOrder + 1
+		await addScheduleToCareer(
+			userId,
+			careerId,
+			selectedId,
+			nextOrder,
+		)
 		onAdded()
 		setOpen(false)
 		setSelectedId(null)
@@ -204,10 +216,12 @@ function CreateCareerDialog({
 	open,
 	onOpenChange,
 	onCreated,
+	userId,
 }: {
 	open: boolean
 	onOpenChange: (o: boolean) => void
 	onCreated: () => void
+	userId: string | null
 }) {
 	const [name, setName] = useState('')
 	const [loading, setLoading] = useState(false)
@@ -217,11 +231,7 @@ function CreateCareerDialog({
 		e.preventDefault()
 		if (!name.trim()) return
 		setLoading(true)
-		const { data, error } = await supabase
-			.from('careers')
-			.insert({ name: name.trim() })
-			.select('id')
-			.single()
+		const { data, error } = await createCareer(userId, name.trim())
 		setLoading(false)
 		if (error) return
 		if (data) setActiveCareerId(data.id)
@@ -348,6 +358,7 @@ type ScheduleSectionRow = NonNullable<ScheduleWithSections['schedule_sections']>
 
 export default function CareerPage() {
 	const pathname = usePathname()
+	const { user } = useAuth()
 	const { data: careers, isLoading: careersLoading, refetch: refetchCareers } = useCareers()
 	const activeCareerId = useCareerStore((s) => s.activeCareerId)
 	const setActiveCareerId = useCareerStore((s) => s.setActiveCareerId)
@@ -371,23 +382,23 @@ export default function CareerPage() {
 	const handleDeleteCareer = useCallback(
 		async (c: Career) => {
 			if (!confirm(`Delete career plan "${c.name}"? Schedules will not be deleted.`)) return
-			await supabase.from('careers').delete().eq('id', c.id)
+			await deleteCareer(user?.id ?? null, c.id)
 			if (activeCareerId === c.id) {
 				const rest = careers.filter((x) => x.id !== c.id)
 				setActiveCareerId(rest[0]?.id ?? null)
 			}
 			await refetchCareers()
 		},
-		[activeCareerId, careers, setActiveCareerId, refetchCareers],
+		[activeCareerId, careers, setActiveCareerId, refetchCareers, user?.id],
 	)
 
 	const handleRenameCareer = useCallback(
 		async (careerId: string, name: string) => {
-			await supabase.from('careers').update({ name }).eq('id', careerId)
+			await updateCareerName(user?.id ?? null, careerId, name)
 			await refetchCareers()
 			if (activeCareerId === careerId) await refetchCareer()
 		},
-		[activeCareerId, refetchCareers, refetchCareer],
+		[activeCareerId, refetchCareers, refetchCareer, user?.id],
 	)
 
 	const sensors = useSensors(
@@ -546,10 +557,11 @@ export default function CareerPage() {
 		for (const cs of draftList) {
 			const originalOrder = originalOrderById.get(cs.id)
 			if (originalOrder !== cs.semester_order) {
-				const { error } = await supabase
-					.from('career_schedules')
-					.update({ semester_order: cs.semester_order })
-					.eq('id', cs.id)
+				const { error } = await updateCareerScheduleOrder(
+					user?.id ?? null,
+					cs.id,
+					cs.semester_order,
+				)
 				if (error) {
 					notify('Failed to save semester order', 'error')
 					return
@@ -562,10 +574,11 @@ export default function CareerPage() {
 			for (const ss of schedule?.schedule_sections ?? []) {
 				const originalScheduleId = originalScheduleBySectionId.get(ss.id)
 				if (originalScheduleId && originalScheduleId !== cs.schedule_id) {
-					const { error } = await supabase
-						.from('schedule_sections')
-						.update({ schedule_id: cs.schedule_id })
-						.eq('id', ss.id)
+					const { error } = await moveSectionBetweenSchedules(
+						user?.id ?? null,
+						ss.id,
+						cs.schedule_id,
+					)
 					if (error) {
 						notify('Failed to save class moves', 'error')
 						return
@@ -584,6 +597,7 @@ export default function CareerPage() {
 		hasUnsavedChanges,
 		notify,
 		refetchCareer,
+		user?.id,
 	])
 
 	useEffect(() => {
@@ -705,6 +719,7 @@ export default function CareerPage() {
 					open={createOpen}
 					onOpenChange={setCreateOpen}
 					onCreated={refetchCareers}
+					userId={user?.id ?? null}
 				/>
 			</aside>
 			<main className="min-w-0 flex-1 flex flex-col overflow-auto">
@@ -735,6 +750,8 @@ export default function CareerPage() {
 							<AddScheduleToCareerButton
 								careerId={career.id}
 								onAdded={refetchCareer}
+								userId={user?.id ?? null}
+								careerSchedules={career.career_schedules}
 							/>
 							{hasUnsavedChanges ? (
 								<Button

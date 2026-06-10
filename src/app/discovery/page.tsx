@@ -8,6 +8,8 @@ import { PageHeader } from '@/components/ui/page-header'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useCourses, useSchedule, useSchedules } from '@/hooks'
 import { Course } from '@/types'
+import { useAuth } from '@/context/auth-provider'
+import { addSectionToSchedule, removeSectionFromSchedule } from '@/lib/plan-mutations'
 import { supabase } from '@/lib/supabaseClient'
 import {
 	Select,
@@ -29,6 +31,7 @@ import {
 import { Button } from '@/components/ui/button'
 
 export default function DiscoveryPage() {
+	const { user } = useAuth()
 	const router = useRouter()
 	const pathname = usePathname()
 	const { data: coursesFromDb, isLoading: coursesLoading } = useCourses()
@@ -84,16 +87,17 @@ export default function DiscoveryPage() {
 			return false
 		}
 
-		const { error } = await supabase.from('schedule_sections').insert({
-			schedule_id: selectedScheduleId,
-			section_id: section.id,
-		})
+		const { error, duplicate } = await addSectionToSchedule(
+			user?.id ?? null,
+			selectedScheduleId,
+			section.id,
+		)
 
+		if (duplicate) {
+			notify('That class is already in this schedule', 'info')
+			return false
+		}
 		if (error) {
-			if (error.code === '23505') {
-				notify('That class is already in this schedule', 'info')
-				return false
-			}
 			notify('Failed to add class to schedule', 'error')
 			return false
 		}
@@ -130,10 +134,10 @@ export default function DiscoveryPage() {
 	}
 
 	const handleRemoveCourse = async (scheduleSectionId: string) => {
-		const { error } = await supabase
-			.from('schedule_sections')
-			.delete()
-			.eq('id', scheduleSectionId)
+		const { error } = await removeSectionFromSchedule(
+			user?.id ?? null,
+			scheduleSectionId,
+		)
 
 		if (error) {
 			notify('Failed to remove class from schedule', 'error')

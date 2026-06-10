@@ -3,8 +3,10 @@
 import { usePathname } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { TechPlanChat } from '@/components/techplan-chat'
+import { GuestPlanBanner } from '@/components/auth/guest-plan-banner'
 import { ActionToastProvider } from '@/components/ui/action-toast'
 import { QueryProvider } from '@/components/providers/query-provider'
+import { AuthProvider } from '@/context/auth-provider'
 import { OpenTabsProvider } from '@/context/open-tabs-provider'
 import { TabBar } from '@/components/tabs/tab-bar'
 
@@ -15,13 +17,15 @@ const PAGE_TRANSITION = {
 }
 
 export function LayoutClient({ children }: { children: React.ReactNode }) {
-	const pathname = usePathname()
+	const pathname = usePathname() ?? '/'
 	return (
 		<QueryProvider>
-			<OpenTabsProvider>
-				<ActionToastProvider>
-					<TabBar />
-					<motion.div
+			<AuthProvider>
+				<OpenTabsProvider>
+					<ActionToastProvider>
+						<TabBar />
+						<GuestPlanBanner />
+						<motion.div
 						key={pathname ?? 'layout'}
 						initial={PAGE_TRANSITION.initial}
 						animate={PAGE_TRANSITION.animate}
@@ -30,9 +34,10 @@ export function LayoutClient({ children }: { children: React.ReactNode }) {
 					>
 						{children}
 					</motion.div>
-					<TechPlanChat />
-				</ActionToastProvider>
-			</OpenTabsProvider>
+						<TechPlanChat />
+					</ActionToastProvider>
+				</OpenTabsProvider>
+			</AuthProvider>
 		</QueryProvider>
 	)
 }

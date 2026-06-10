@@ -19,7 +19,10 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '@/components/ui/select'
+import { useAuth } from '@/context/auth-provider'
+import { createSchedule } from '@/lib/plan-mutations'
 import { scheduleSchema, type ScheduleFormValues } from '@/lib/validations'
+import type { Semester } from '@/types'
 import { SEMESTERS } from '@/utils/constants'
 import { useScheduleStore } from '@/stores/schedule-store'
 
@@ -34,6 +37,7 @@ export function CreateScheduleDialog({
 	onOpenChange,
 	onCreated,
 }: CreateScheduleDialogProps) {
+	const { user } = useAuth()
 	const setActiveScheduleId = useScheduleStore((s) => s.setActiveScheduleId)
 	const form = useForm<ScheduleFormValues>({
 		resolver: zodResolver(scheduleSchema),
@@ -45,14 +49,13 @@ export function CreateScheduleDialog({
 	})
 
 	const handleSubmit = form.handleSubmit(async (values) => {
-		const { supabase } = await import('@/lib/supabaseClient')
-		const { data, error } = await supabase
-			.from('schedules')
-			.insert({ name: values.name, semester: values.semester, year: values.year })
-			.select('id')
-			.single()
+		const { data, error } = await createSchedule(user?.id ?? null, {
+			name: values.name,
+			semester: values.semester as Semester,
+			year: values.year,
+		})
 		if (error) {
-			form.setError('root', { message: error.message })
+			form.setError('root', { message: error })
 			return
 		}
 		if (data) setActiveScheduleId(data.id)
